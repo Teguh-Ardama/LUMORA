@@ -1,0 +1,43 @@
+{
+  "name": "@lumora/bridge",
+  "version": "1.0.0",
+  "private": true,
+  "description": "LUMORA Desktop Bridge — DSLR folder watcher & uploader",
+  "main": "dist/main.cjs",
+  "scripts": {
+    "build:bundle": "tsup",
+    "dev": "tsup && electron .",
+    "start": "electron .",
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "dist": "tsup && electron-builder"
+  },
+  "dependencies": {
+    "chokidar": "3.6.0",
+    "sharp": "0.33.5"
+  },
+  "devDependencies": {
+    "@lumora/contracts": "workspace:*",
+    "@lumora/image": "workspace:*",
+    "@types/node": "22.10.7",
+    "electron": "33.3.1",
+    "electron-builder": "25.1.8",
+    "tsup": "8.3.5",
+    "typescript": "5.7.3",
+    "zod": "3.24.1"
+  },
+  "build": {
+    "appId": "app.lumora.bridge",
+    "productName": "LUMORA Bridge",
+    "files": ["dist/**/*", "static/**/*", "package.json"],
+    "directories": {
+      "output": "release"
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "mac": {
+      "target": "dmg"
+    }
+  }
+}

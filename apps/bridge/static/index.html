@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'" />
+    <title>LUMORA Bridge</title>
+    <style>
+      :root {
+        --bg: #101014;
+        --surface: #17171d;
+        --surface-2: #1e1e26;
+        --border: #2a2a34;
+        --text: #e7e7ec;
+        --muted: #8b8b98;
+        --accent: #5a8fef;
+        --success: #34b37a;
+        --warn: #e2a63d;
+        --error: #e05252;
+        --radius: 10px;
+      }
+      * { box-sizing: border-box; margin: 0; }
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: "Segoe UI", system-ui, sans-serif;
+        font-size: 14px;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      header {
+        display: flex; align-items: center; gap: 10px;
+        padding: 14px 18px; border-bottom: 1px solid var(--border);
+      }
+      .logo {
+        width: 28px; height: 28px; border-radius: 8px;
+        background: var(--accent); display: grid; place-items: center;
+        font-weight: 700; color: #fff; font-size: 13px;
+      }
+      header h1 { font-size: 15px; font-weight: 600; letter-spacing: 0.02em; }
+      header .spacer { flex: 1; }
+      .pill {
+        font-size: 11px; padding: 3px 10px; border-radius: 999px;
+        border: 1px solid var(--border); color: var(--muted);
+      }
+      .pill.ok { color: var(--success); border-color: rgba(52,179,122,.4); }
+      .pill.bad { color: var(--error); border-color: rgba(224,82,82,.4); }
+      main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+      /* Pairing view */
+      #pair-view {
+        margin: auto; width: 380px; max-width: calc(100vw - 48px);
+        background: var(--surface); border: 1px solid var(--border);
+        border-radius: var(--radius); padding: 26px;
+      }
+      #pair-view h2 { font-size: 16px; margin-bottom: 4px; }
+      #pair-view p { color: var(--muted); font-size: 12.5px; margin-bottom: 18px; }
+      label { display: block; font-size: 12px; color: var(--muted); margin: 12px 0 5px; }
+      input {
+        width: 100%; padding: 9px 11px; border-radius: 8px;
+        border: 1px solid var(--border); background: var(--surface-2);
+        color: var(--text); font-size: 14px; outline: none;
+      }
+      input:focus { border-color: var(--accent); }
+      #pair-code { text-transform: uppercase; letter-spacing: 0.35em; font-family: Consolas, monospace; }
+      button {
+        border: 1px solid var(--border); border-radius: 8px;
+        background: var(--surface-2); color: var(--text);
+        padding: 9px 14px; font-size: 13px; cursor: pointer;
+      }
+      button:hover { background: #262630; }
+      button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+      button.primary:hover { filter: brightness(1.08); }
+      button:disabled { opacity: 0.5; cursor: default; }
+      .full { width: 100%; margin-top: 18px; }
+      .error-text { color: var(--error); font-size: 12px; margin-top: 10px; min-height: 16px; }
+
+      /* Dashboard view */
+      #dash-view { display: none; flex: 1; flex-direction: column; padding: 16px 18px; gap: 14px; overflow: hidden; }
+      .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+      .card {
+        background: var(--surface); border: 1px solid var(--border);
+        border-radius: var(--radius); padding: 12px 14px;
+      }
+      .card .k { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+      .card .v { font-size: 17px; font-weight: 600; margin-top: 4px; }
+      .row { display: flex; gap: 10px; align-items: center; }
+      .folder {
+        flex: 1; background: var(--surface); border: 1px dashed var(--border);
+        border-radius: var(--radius); padding: 10px 14px; color: var(--muted);
+        font-family: Consolas, monospace; font-size: 12px;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      }
+      #logs {
+        flex: 1; background: var(--surface); border: 1px solid var(--border);
+        border-radius: var(--radius); padding: 10px 12px; overflow-y: auto;
+        font-family: Consolas, monospace; font-size: 12px; line-height: 1.7;
+      }
+      #logs .warn { color: var(--warn); }
+      #logs .error { color: var(--error); }
+      #logs .info { color: var(--muted); }
+      .footer-row { display: flex; justify-content: space-between; align-items: center; }
+      .footer-row .hint { color: var(--muted); font-size: 12px; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="logo">L</div>
+      <h1>LUMORA Bridge</h1>
+      <span id="event-pill" class="pill" style="display: none"></span>
+      <div class="spacer"></div>
+      <span id="conn-pill" class="pill bad">offline</span>
+    </header>
+
+    <main>
+      <!-- Pairing -->
+      <section id="pair-view">
+        <h2>Pair this device</h2>
+        <p>In the dashboard, open your event → <b>Pair Bridge</b>, then enter the 8-character code.</p>
+        <label for="pair-api">Server URL</label>
+        <input id="pair-api" placeholder="https://app.lumora.example" value="http://localhost:3000" />
+        <label for="pair-code">Pairing code</label>
+        <input id="pair-code" placeholder="XXXXXXXX" maxlength="8" autocomplete="off" />
+        <label for="pair-name">Device name</label>
+        <input id="pair-name" placeholder="Booth Laptop A" />
+        <button id="pair-btn" class="primary full">Pair device</button>
+        <div id="pair-error" class="error-text"></div>
+      </section>
+
+      <!-- Dashboard -->
+      <section id="dash-view">
+        <div class="cards">
+          <div class="card"><div class="k">Watcher</div><div class="v" id="stat-watcher">stopped</div></div>
+          <div class="card"><div class="k">Upload queue</div><div class="v" id="stat-queue">0</div></div>
+          <div class="card"><div class="k">Uploaded</div><div class="v" id="stat-uploaded">0</div></div>
+          <div class="card"><div class="k">Active session</div><div class="v" id="stat-session">—</div></div>
+        </div>
+
+        <div class="row">
+          <div class="folder" id="folder-path">No tether folder selected</div>
+          <button id="folder-btn">Choose folder…</button>
+          <button id="watch-btn" class="primary">Start watching</button>
+        </div>
+
+        <div id="logs" aria-label="Activity log"></div>
+
+        <div class="footer-row">
+          <span class="hint" id="version-hint"></span>
+          <button id="unpair-btn">Unpair device</button>
+        </div>
+      </section>
+    </main>
+
+    <script src="../dist/renderer.js"></script>
+  </body>
+</html>

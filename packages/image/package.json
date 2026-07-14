@@ -1,0 +1,21 @@
+{
+  "name": "@lumora/image",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./server": "./src/server/index.ts",
+    "./browser": "./src/browser/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@lumora/contracts": "workspace:*",
+    "sharp": "0.33.5"
+  },
+  "devDependencies": {
+    "@types/node": "22.10.7",
+    "typescript": "5.7.3"
+  }
+}
