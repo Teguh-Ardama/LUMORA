@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Camera, RefreshCcw, VideoOff } from "lucide-react";
+import { Camera, RefreshCcw, Sparkles, VideoOff } from "lucide-react";
 import { PHOTO_MIN_LONG_EDGE, PHOTO_TARGET_MAX_BYTES } from "@lumora/contracts";
 import { captureVideoFrame, compressBitmapToTarget } from "@lumora/image/browser";
 import {
@@ -11,32 +11,53 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Spinner,
   cn,
   toast,
 } from "@lumora/ui";
+import { FaceArEngine, type ArEngineStatus } from "@/lib/ar/engine";
+import { AR_STYLES } from "@/lib/ar/styles";
 
 export interface WebcamPanelProps {
   countdownSeconds: number;
   framesCaptured: number;
   framesTotal: number;
   disabled: boolean;
+  /** Live LUT preview (CSS filter chain); "none" disables. */
+  previewCssFilter?: string;
+  /** Transparent border PNG stretched over the feed as a look preview. */
+  borderOverlayUrl?: string | null;
   /** Called with the compressed frame; resolves when the upload finishes. */
   onFrame: (blob: Blob) => Promise<void>;
 }
 
 /**
- * FR-01 Web Capture Engine: WebRTC preview + countdown capture, with
- * FR-03 client-side compression before every upload.
+ * FR-01 Web Capture Engine: WebRTC preview + countdown capture, FR-03
+ * client-side compression, live LUT/border preview layers, and optional
+ * MediaPipe face-AR accessories composited into the captured frame.
  */
-export function WebcamPanel({ countdownSeconds, framesCaptured, framesTotal, disabled, onFrame }: WebcamPanelProps) {
+export function WebcamPanel({
+  countdownSeconds,
+  framesCaptured,
+  framesTotal,
+  disabled,
+  previewCssFilter = "none",
+  borderOverlayUrl = null,
+  onFrame,
+}: WebcamPanelProps) {
   const videoRef = React.useRef<HTMLVideoElement>(null);
+  const overlayRef = React.useRef<HTMLCanvasElement>(null);
   const streamRef = React.useRef<MediaStream | null>(null);
+  const engineRef = React.useRef<FaceArEngine | null>(null);
+
   const [devices, setDevices] = React.useState<MediaDeviceInfo[]>([]);
   const [deviceId, setDeviceId] = React.useState<string | undefined>(undefined);
   const [cameraError, setCameraError] = React.useState<string | null>(null);
   const [countdown, setCountdown] = React.useState<number | null>(null);
   const [uploading, setUploading] = React.useState(false);
   const [flash, setFlash] = React.useState(false);
+  const [arStyleId, setArStyleId] = React.useState<string | null>(null);
+  const [arStatus, setArStatus] = React.useState<ArEngineStatus>("idle");
 
   const startStream = React.useCallback(async (id?: string) => {
     streamRef.current?.getTracks().forEach((t) => t.stop());
@@ -64,8 +85,33 @@ export function WebcamPanel({ countdownSeconds, framesCaptured, framesTotal, dis
 
   React.useEffect(() => {
     void startStream();
-    return () => streamRef.current?.getTracks().forEach((t) => t.stop());
+    return () => {
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+      engineRef.current?.dispose();
+      engineRef.current = null;
+    };
   }, [startStream]);
+
+  /** Lazy AR boot: the model only downloads when a style is first picked. */
+  const selectArStyle = async (styleId: string | null) => {
+    setArStyleId(styleId);
+    if (!styleId) {
+      engineRef.current?.setStyle(null);
+      engineRef.current?.stop();
+      return;
+    }
+    try {
+      if (!engineRef.current) engineRef.current = new FaceArEngine(setArStatus);
+      if (videoRef.current && overlayRef.current) {
+        await engineRef.current.init(videoRef.current, overlayRef.current);
+      }
+      engineRef.current.setStyle(styleId);
+      engineRef.current.start();
+    } catch {
+      setArStyleId(null);
+      toast.error("AR filter could not load — check the internet connection and retry");
+    }
+  };
 
   const capture = async () => {
     const video = videoRef.current;
@@ -81,7 +127,10 @@ export function WebcamPanel({ countdownSeconds, framesCaptured, framesTotal, dis
 
     setUploading(true);
     try {
-      const bitmap = await captureVideoFrame(video);
+      const arActive = Boolean(arStyleId && engineRef.current?.activeStyleId);
+      const bitmap = arActive
+        ? await engineRef.current!.captureComposite()
+        : await captureVideoFrame(video);
       const { blob } = await compressBitmapToTarget(bitmap, {
         targetBytes: PHOTO_TARGET_MAX_BYTES,
         minLongEdge: PHOTO_MIN_LONG_EDGE,
@@ -99,7 +148,29 @@ export function WebcamPanel({ countdownSeconds, framesCaptured, framesTotal, dis
     <div className="flex h-full flex-col gap-3">
       <div className="relative flex-1 overflow-hidden rounded-lg border bg-black">
         {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-        <video ref={videoRef} playsInline muted className="h-full w-full object-contain" />
+        <video
+          ref={videoRef}
+          playsInline
+          muted
+          className="h-full w-full object-contain"
+          style={{ filter: previewCssFilter }}
+        />
+        {/* AR overlay — native video resolution, object-contain keeps it
+            pixel-aligned with the letterboxed video underneath. */}
+        <canvas
+          ref={overlayRef}
+          className="pointer-events-none absolute inset-0 h-full w-full object-contain"
+        />
+        {/* Border look-preview (stretched: final crop differs per layout slot). */}
+        {borderOverlayUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={borderOverlayUrl}
+            alt=""
+            aria-hidden
+            className="pointer-events-none absolute inset-0 h-full w-full opacity-90"
+          />
+        ) : null}
         {flash ? <div className="absolute inset-0 bg-white" /> : null}
         {countdown !== null ? (
           <div className="absolute inset-0 flex items-center justify-center bg-black/40">
@@ -118,6 +189,41 @@ export function WebcamPanel({ countdownSeconds, framesCaptured, framesTotal, dis
         <div className="absolute left-3 top-3 rounded-full bg-black/60 px-3 py-1 text-xs font-medium text-white">
           Frame {Math.min(framesCaptured + 1, framesTotal)} of {framesTotal}
         </div>
+        {arStatus === "loading" ? (
+          <div className="absolute right-3 top-3 flex items-center gap-2 rounded-full bg-black/60 px-3 py-1 text-xs text-white">
+            <Spinner className="h-3 w-3 text-white" /> Loading AR…
+          </div>
+        ) : null}
+      </div>
+
+      {/* AR accessory picker */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-0.5">
+        <span className="flex shrink-0 items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          <Sparkles className="h-3.5 w-3.5" /> AR
+        </span>
+        <button
+          type="button"
+          onClick={() => void selectArStyle(null)}
+          className={cn(
+            "shrink-0 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+            arStyleId === null ? "border-primary bg-accent" : "text-muted-foreground hover:bg-accent/50",
+          )}
+        >
+          None
+        </button>
+        {AR_STYLES.map((style) => (
+          <button
+            key={style.id}
+            type="button"
+            onClick={() => void selectArStyle(style.id)}
+            className={cn(
+              "shrink-0 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+              arStyleId === style.id ? "border-primary bg-accent" : "text-muted-foreground hover:bg-accent/50",
+            )}
+          >
+            {style.name}
+          </button>
+        ))}
       </div>
 
       <div className="flex items-center gap-2">

@@ -81,6 +81,13 @@ Prepaid wallet per organization; **one charge per composed session** (default `P
 
 Dashboard → **Billing**: balance, sessions remaining, top-up (presets + custom), pending invoice, full ledger.
 
+## Capture extras
+
+- **AR face accessories** (operator console, webcam mode): MediaPipe Face Landmarker (WASM + GPU delegate, per-video-frame detection) with programmatic vector eyewear — *Classic Noir*, *Aviator Gold*, *Retro Round*. Multi-face, scale/rotation-locked to the eyes, composited into the captured frame (WYSIWYG). Model loads lazily from CDN on first use.
+- **LUT & border toggles**: one-tap switches per session; the LUT is previewed live on the camera feed via a CSS-filter approximation of the Sharp pipeline, the border as an overlay. The composed output remains the server-side source of truth.
+- **Offline-first capture**: failed webcam uploads persist to IndexedDB (original idempotency key kept) and auto-flush every 15 s / on reconnect — a "pending upload" badge shows in the console header. Survives reloads; replays are dedupe-safe server-side.
+- **Print Queue Manager** (dashboard): reprint any job from its signed composed URL after a paper jam, or mark printed/failed/cancel — no photo is ever lost to printer hardware.
+
 ## Dual-device mode (Display Screen)
 
 For the phone-camera + laptop-display setup: open **`/operator/<eventId>/display`** on the laptop (button "Display" in the operator console header) and run the session from the operator console on a phone. The display listens to the event SSE stream:

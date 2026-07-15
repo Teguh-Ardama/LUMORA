@@ -8,6 +8,7 @@ import {
   ArrowLeft,
   Camera,
   Cable,
+  CloudUpload,
   ImagePlus,
   Inbox,
   MonitorPlay,
@@ -15,6 +16,9 @@ import {
   Sparkles,
   Wand2,
 } from "lucide-react";
+import { filterParamsSchema } from "@lumora/contracts";
+import { cssFilterFromParams } from "@/lib/preview/css-filter";
+import { useOfflineUploads } from "@/lib/hooks/use-offline-uploads";
 import {
   Badge,
   Button,
@@ -24,6 +28,7 @@ import {
   Label,
   LoadingState,
   ScrollArea,
+  Switch,
   Select,
   SelectContent,
   SelectItem,
@@ -48,7 +53,6 @@ import {
   useQuarantine,
   useStartSession,
   useUpdateSession,
-  useUploadPhoto,
   type SessionPayload,
 } from "@/lib/hooks/use-operator";
 import { WebcamPanel } from "@/components/operator/webcam-panel";
@@ -61,7 +65,8 @@ export default function OperatorWorkspacePage() {
 
   const startSession = useStartSession(eventId);
   const updateSession = useUpdateSession(eventId);
-  const uploadPhoto = useUploadPhoto();
+  const offline = useOfflineUploads(eventId);
+  const [frameBusy, setFrameBusy] = React.useState(false);
   const compose = useCompose(eventId);
   const attachPhoto = useAttachPhoto(eventId);
   const { data: quarantine } = useQuarantine(eventId);
@@ -88,6 +93,19 @@ export default function OperatorWorkspacePage() {
     }
   });
 
+  // All hooks live above the loading/error guards (rules of hooks).
+  const session = ctx?.activeSession ?? null;
+  const lastLutFilterId = React.useRef<string | null>(null);
+  const lastBorderId = React.useRef<string | null>(null);
+  if (session && session.filter.kind !== "NORMAL") lastLutFilterId.current = session.filter.id;
+  if (session?.border) lastBorderId.current = session.border.id;
+
+  const activeFilterParams = React.useMemo(() => {
+    const raw = ctx?.filters.find((f) => f.id === session?.filter.id)?.params;
+    const parsed = filterParamsSchema.safeParse(raw);
+    return parsed.success ? parsed.data : null;
+  }, [ctx?.filters, session?.filter.id]);
+
   if (isLoading) return <LoadingState label="Preparing workspace…" className="min-h-screen" />;
   if (isError || !ctx) {
     return (
@@ -97,7 +115,6 @@ export default function OperatorWorkspacePage() {
     );
   }
 
-  const session = ctx.activeSession;
   const selectedLayout = ctx.layouts.find((l) => l.id === (session?.layout.id ?? layoutId));
   const framesTotal = session
     ? Math.max(...session.layout.config.slots.map((s) => s.photoIndex)) + 1
@@ -128,7 +145,19 @@ export default function OperatorWorkspacePage() {
 
   const handleFrame = async (blob: Blob) => {
     if (!session) return;
-    await uploadPhoto.mutateAsync({ sessionId: session.id, blob, sequence: session.photos.length });
+    setFrameBusy(true);
+    try {
+      const result = await offline.uploadOrQueue({
+        sessionId: session.id,
+        blob,
+        sequence: session.photos.length,
+      });
+      if (result === "queued") {
+        toast.warning("Koneksi bermasalah — foto disimpan offline dan akan di-upload otomatis");
+      }
+    } finally {
+      setFrameBusy(false);
+    }
   };
 
   const changeSetting = (patch: Record<string, unknown>) => {
@@ -138,6 +167,32 @@ export default function OperatorWorkspacePage() {
       { onError: (err) => toast.error(err instanceof ApiClientError ? err.message : "Update failed") },
     );
   };
+
+  // ── LUT / border quick-toggles (FR-05 UX) ───────────────────────────────
+  const normalFilter = ctx.filters.find((f) => f.kind === "NORMAL");
+  const lutEnabled = Boolean(session && session.filter.kind !== "NORMAL");
+  const borderEnabled = Boolean(session?.border);
+
+  const toggleLut = (on: boolean) => {
+    if (!session || !normalFilter) return;
+    const fallback = ctx.filters.find((f) => f.kind !== "NORMAL");
+    const target = on ? (lastLutFilterId.current ?? fallback?.id) : normalFilter.id;
+    if (target) changeSetting({ filterId: target });
+  };
+
+  const toggleBorder = (on: boolean) => {
+    if (!session) return;
+    const target = on
+      ? (lastBorderId.current ?? ctx.event.defaultBorderId ?? ctx.borders[0]?.id ?? null)
+      : null;
+    changeSetting({ borderId: target });
+  };
+
+  // Live preview inputs for the capture feed.
+  const previewCssFilter = cssFilterFromParams(activeFilterParams, lutEnabled);
+  const borderOverlayUrl = session?.border
+    ? (ctx.borders.find((b) => b.id === session.border!.id)?.imageUrl ?? null)
+    : null;
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -158,6 +213,11 @@ export default function OperatorWorkspacePage() {
               <MonitorPlay /> Display
             </a>
           </Button>
+          {offline.pendingCount > 0 ? (
+            <Badge variant="warning">
+              <CloudUpload className="h-3 w-3" /> {offline.pendingCount} pending upload
+            </Badge>
+          ) : null}
           <Badge variant={bridgeOnline ? "success" : "muted"}>
             <Cable className="h-3 w-3" /> Bridge {bridgeOnline ? "online" : "offline"}
           </Badge>
@@ -191,19 +251,102 @@ export default function OperatorWorkspacePage() {
         {/* ── Capture area ─────────────────────────────────────────────── */}
         <div className="min-h-[420px]">
           {!session || session.status === "CLOSED" ? (
-            <StartPanel
-              captureSource={captureSource}
-              setCaptureSource={setCaptureSource}
-              bridgeOnline={bridgeOnline}
-              onStart={handleStart}
-              starting={startSession.isPending}
-            />
+            <Card className="flex h-full flex-col justify-center">
+              <CardContent className="mx-auto w-full max-w-md space-y-5 p-8">
+                <div className="text-center">
+                  <h2 className="text-lg font-semibold">Start a guest session</h2>
+                  <p className="text-sm text-muted-foreground">Pick the camera source and booth settings.</p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setCaptureSource("WEBCAM")}
+                    className={cn(
+                      "flex flex-col items-center gap-2 rounded-lg border p-4 text-sm font-medium transition-colors",
+                      captureSource === "WEBCAM" ? "border-primary bg-accent" : "hover:bg-accent/50",
+                    )}
+                  >
+                    <Camera className="h-5 w-5" /> Webcam
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCaptureSource("BRIDGE")}
+                    className={cn(
+                      "flex flex-col items-center gap-2 rounded-lg border p-4 text-sm font-medium transition-colors",
+                      captureSource === "BRIDGE" ? "border-primary bg-accent" : "hover:bg-accent/50",
+                    )}
+                  >
+                    <Cable className="h-5 w-5" />
+                    DSLR Bridge
+                    <span className={cn("text-xs", bridgeOnline ? "text-success" : "text-muted-foreground")}>
+                      {bridgeOnline ? "online" : "offline"}
+                    </span>
+                  </button>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="space-y-1.5">
+                    <Label>Layout</Label>
+                    <Select value={layoutId} onValueChange={setLayoutId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Pick a layout" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ctx.layouts.map((l) => (
+                          <SelectItem key={l.id} value={l.id}>
+                            {l.name} · {l.mode} · {l.photoCount} photos
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Border</Label>
+                    <Select value={borderId || "none"} onValueChange={(v) => setBorderId(v === "none" ? "" : v)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="No border" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">No border</SelectItem>
+                        {ctx.borders.map((b) => (
+                          <SelectItem key={b.id} value={b.id}>
+                            {b.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Filter</Label>
+                    <Select value={filterId} onValueChange={setFilterId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Pick a filter" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ctx.filters.map((f) => (
+                          <SelectItem key={f.id} value={f.id}>
+                            {f.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <Button className="w-full" size="lg" onClick={handleStart} loading={startSession.isPending}>
+                  Start session
+                </Button>
+              </CardContent>
+            </Card>
           ) : session.status === "CAPTURING" && session.captureSource === "WEBCAM" ? (
             <WebcamPanel
               countdownSeconds={ctx.event.countdownSeconds}
               framesCaptured={framesCaptured}
               framesTotal={framesTotal}
-              disabled={uploadPhoto.isPending}
+              disabled={frameBusy}
+              previewCssFilter={previewCssFilter}
+              borderOverlayUrl={borderOverlayUrl}
               onFrame={handleFrame}
             />
           ) : session.status === "CAPTURING" ? (
@@ -251,6 +394,20 @@ export default function OperatorWorkspacePage() {
               {session.status === "CAPTURING" ? (
                 <Card>
                   <CardContent className="space-y-3 p-4">
+                    <div className="flex items-center justify-between rounded-md border px-3 py-2">
+                      <div>
+                        <p className="text-sm font-medium">Color grade (LUT)</p>
+                        <p className="text-xs text-muted-foreground">Live preview on the camera feed</p>
+                      </div>
+                      <Switch checked={lutEnabled} onCheckedChange={toggleLut} aria-label="Toggle color grade" />
+                    </div>
+                    <div className="flex items-center justify-between rounded-md border px-3 py-2">
+                      <div>
+                        <p className="text-sm font-medium">Border / frame</p>
+                        <p className="text-xs text-muted-foreground">Applied on the final 4R composition</p>
+                      </div>
+                      <Switch checked={borderEnabled} onCheckedChange={toggleBorder} aria-label="Toggle border" />
+                    </div>
                     <div className="space-y-1.5">
                       <Label className="text-xs uppercase tracking-wide text-muted-foreground">
                         <Wand2 className="mr-1 inline h-3 w-3" /> Filter (guest request)
@@ -359,112 +516,6 @@ export default function OperatorWorkspacePage() {
       </div>
     </div>
   );
-
-  // ── Start panel (no active session) ────────────────────────────────────
-  function StartPanel({
-    captureSource,
-    setCaptureSource,
-    bridgeOnline,
-    onStart,
-    starting,
-  }: {
-    captureSource: "WEBCAM" | "BRIDGE";
-    setCaptureSource: (v: "WEBCAM" | "BRIDGE") => void;
-    bridgeOnline: boolean;
-    onStart: () => void;
-    starting: boolean;
-  }) {
-    return (
-      <Card className="flex h-full flex-col justify-center">
-        <CardContent className="mx-auto w-full max-w-md space-y-5 p-8">
-          <div className="text-center">
-            <h2 className="text-lg font-semibold">Start a guest session</h2>
-            <p className="text-sm text-muted-foreground">Pick the camera source and booth settings.</p>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              type="button"
-              onClick={() => setCaptureSource("WEBCAM")}
-              className={cn(
-                "flex flex-col items-center gap-2 rounded-lg border p-4 text-sm font-medium transition-colors",
-                captureSource === "WEBCAM" ? "border-primary bg-accent" : "hover:bg-accent/50",
-              )}
-            >
-              <Camera className="h-5 w-5" /> Webcam
-            </button>
-            <button
-              type="button"
-              onClick={() => setCaptureSource("BRIDGE")}
-              className={cn(
-                "flex flex-col items-center gap-2 rounded-lg border p-4 text-sm font-medium transition-colors",
-                captureSource === "BRIDGE" ? "border-primary bg-accent" : "hover:bg-accent/50",
-              )}
-            >
-              <Cable className="h-5 w-5" />
-              DSLR Bridge
-              <span className={cn("text-xs", bridgeOnline ? "text-success" : "text-muted-foreground")}>
-                {bridgeOnline ? "online" : "offline"}
-              </span>
-            </button>
-          </div>
-
-          <div className="space-y-3">
-            <div className="space-y-1.5">
-              <Label>Layout</Label>
-              <Select value={layoutId} onValueChange={setLayoutId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Pick a layout" />
-                </SelectTrigger>
-                <SelectContent>
-                  {ctx!.layouts.map((l) => (
-                    <SelectItem key={l.id} value={l.id}>
-                      {l.name} · {l.mode} · {l.photoCount} photos
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Border</Label>
-              <Select value={borderId || "none"} onValueChange={(v) => setBorderId(v === "none" ? "" : v)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="No border" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">No border</SelectItem>
-                  {ctx!.borders.map((b) => (
-                    <SelectItem key={b.id} value={b.id}>
-                      {b.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Filter</Label>
-              <Select value={filterId} onValueChange={setFilterId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Pick a filter" />
-                </SelectTrigger>
-                <SelectContent>
-                  {ctx!.filters.map((f) => (
-                    <SelectItem key={f.id} value={f.id}>
-                      {f.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <Button className="w-full" size="lg" onClick={onStart} loading={starting}>
-            Start session
-          </Button>
-        </CardContent>
-      </Card>
-    );
-  }
 }
 
 // ── Bridge waiting panel ───────────────────────────────────────────────────

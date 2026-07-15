@@ -179,6 +179,7 @@ export interface PrintJobItem {
   copies: number;
   status: string;
   failureReason: string | null;
+  composedUrl: string | null;
   createdAt: string;
   printedAt: string | null;
 }
@@ -189,6 +190,18 @@ export function usePrintJobs(params: { page: number; eventId?: string }) {
   return useQuery({
     queryKey: ["print-jobs", params],
     queryFn: () => apiClient.get<Paged<PrintJobItem>>(`/api/print-jobs?${qs}`),
+  });
+}
+
+export function useUpdatePrintJob() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { id: string; status: "PRINTING" | "PRINTED" | "FAILED" | "CANCELLED"; failureReason?: string }) =>
+      apiClient.patch(`/api/print-jobs/${input.id}`, {
+        status: input.status,
+        failureReason: input.failureReason,
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["print-jobs"] }),
   });
 }
 

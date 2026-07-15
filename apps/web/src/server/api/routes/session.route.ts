@@ -18,6 +18,7 @@ import {
 import { publishRealtime } from "@lumora/core";
 import { photoRepo, printJobRepo, sessionRepo } from "@lumora/db";
 import { serializeSession, sessionService } from "../../services/session.service";
+import { mediaService } from "../../services/media.service";
 import { assertEventAccess, notFound, ok, rateLimitBy, requireAuth, requirePermission } from "../middleware";
 import type { ApiEnv } from "../context";
 
@@ -161,8 +162,16 @@ export const printRoute = new Hono<ApiEnv>()
         page: q.page,
         pageSize: q.pageSize,
       });
+      // Signed print asset URLs so the queue manager can reprint any job.
+      const composedUrls = await Promise.all(
+        items.map((j) =>
+          j.session.composedKey
+            ? mediaService.composedUrl({ composedKey: j.session.composedKey })
+            : Promise.resolve(null),
+        ),
+      );
       return ok(c, {
-        items: items.map((j) => ({
+        items: items.map((j, i) => ({
           id: j.id,
           eventName: j.event.name,
           sessionId: j.sessionId,
@@ -170,6 +179,7 @@ export const printRoute = new Hono<ApiEnv>()
           copies: j.copies,
           status: j.status,
           failureReason: j.failureReason,
+          composedUrl: composedUrls[i],
           createdAt: j.createdAt,
           printedAt: j.printedAt,
         })),
