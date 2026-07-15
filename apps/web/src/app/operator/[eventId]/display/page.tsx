@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import QRCode from "qrcode";
 import { format } from "date-fns";
-import { Aperture, Camera, Mail, MessageCircle, Printer, Send } from "lucide-react";
+import { Aperture, Camera, Mail, Printer, Send } from "lucide-react";
 import {
   Badge,
   Button,
@@ -141,7 +141,6 @@ function ReadyView({ eventName, session }: { eventName: string; session: Session
   const print = usePrint();
 
   const [qrDataUrl, setQrDataUrl] = React.useState<string | null>(null);
-  const [waNumber, setWaNumber] = React.useState("");
   const [email, setEmail] = React.useState("");
   const printImgRef = React.useRef<HTMLImageElement>(null);
   const mintedFor = React.useRef<string | null>(null);
@@ -157,24 +156,9 @@ function ReadyView({ eventName, session }: { eventName: string; session: Session
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session.id]);
 
-  const sendWhatsApp = async () => {
-    try {
-      const result = await requestDelivery.mutateAsync({
-        sessionId: session.id,
-        channel: "WHATSAPP",
-        waNumber: waNumber.trim(),
-      });
-      if (result.waLink) window.open(result.waLink, "_blank", "noopener,noreferrer");
-      toast.success("Link foto dikirim via WhatsApp");
-      setWaNumber("");
-    } catch (err) {
-      toast.error(err instanceof ApiClientError ? err.message : "Pengiriman gagal");
-    }
-  };
-
   const sendEmail = async () => {
     try {
-      await requestDelivery.mutateAsync({ sessionId: session.id, channel: "EMAIL", email: email.trim() });
+      await requestDelivery.mutateAsync({ sessionId: session.id, email: email.trim() });
       toast.success("Link foto dikirim ke email");
       setEmail("");
     } catch (err) {
@@ -222,7 +206,7 @@ function ReadyView({ eventName, session }: { eventName: string; session: Session
         <div>
           <h1 className="text-3xl font-semibold tracking-tight">Foto Kamu Siap! ✨</h1>
           <p className="mt-1.5 text-muted-foreground">
-            Scan QR code atau kirim ke HP kamu untuk download foto resolusi tinggi.
+            Scan QR code atau kirim ke email kamu untuk download foto resolusi tinggi.
           </p>
         </div>
 
@@ -241,34 +225,14 @@ function ReadyView({ eventName, session }: { eventName: string; session: Session
 
           <div className="min-w-0 flex-1">
             <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Atau kirim digital
+              Atau kirim ke email
             </p>
-            <Tabs defaultValue="whatsapp">
+            <Tabs defaultValue="email">
               <TabsList className="w-full">
-                <TabsTrigger value="whatsapp" className="flex-1">
-                  <MessageCircle className="mr-1.5 h-4 w-4" /> WhatsApp
-                </TabsTrigger>
                 <TabsTrigger value="email" className="flex-1">
                   <Mail className="mr-1.5 h-4 w-4" /> Email
                 </TabsTrigger>
               </TabsList>
-              <TabsContent value="whatsapp" className="space-y-2">
-                <Input
-                  placeholder="+62 812 3456 7890"
-                  inputMode="tel"
-                  value={waNumber}
-                  onChange={(e) => setWaNumber(e.target.value)}
-                  className="h-11"
-                />
-                <Button
-                  className="h-11 w-full"
-                  onClick={sendWhatsApp}
-                  loading={requestDelivery.isPending}
-                  disabled={waNumber.replace(/\D/g, "").length < 8}
-                >
-                  Kirim Link Foto <Send />
-                </Button>
-              </TabsContent>
               <TabsContent value="email" className="space-y-2">
                 <Input
                   placeholder="kamu@mail.com"

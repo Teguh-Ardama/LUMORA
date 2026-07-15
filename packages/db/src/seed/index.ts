@@ -19,6 +19,7 @@ import { prisma } from "../client";
 import { seedFilters } from "./filters";
 import { seedLayouts } from "./layouts";
 import { seedBorders } from "./borders";
+import { seedStickers } from "./stickers";
 import { seedDemoOrg } from "./demo-org";
 
 async function main() {
@@ -29,6 +30,8 @@ async function main() {
   console.log(`✓ global layouts (${layouts.length})`);
   const borders = await seedBorders();
   console.log(`✓ global borders (${borders.length})`);
+  const stickers = await seedStickers();
+  console.log(`✓ global stickers (${stickers.length})`);
   await seedDemoOrg({ layouts, borders });
   console.log("✓ demo organization (admin@lumora.dev / operator@lumora.dev — password: Lumora123!)");
   console.log("── done ──");

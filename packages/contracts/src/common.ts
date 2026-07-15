@@ -27,12 +27,6 @@ export function paginate<T>(items: T[], total: number, q: PaginationQuery): Pagi
   };
 }
 
-/** E.164-ish WhatsApp number, digits only after optional +. */
-export const waNumberSchema = z
-  .string()
-  .trim()
-  .regex(/^\+?[1-9]\d{7,14}$/, "Invalid WhatsApp number");
-
 export const emailSchema = z.string().trim().toLowerCase().email().max(255);
 
 export const idempotencyKeySchema = z.string().min(8).max(128);

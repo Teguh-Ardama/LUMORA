@@ -1,19 +1,15 @@
 import { z } from "zod";
-import { emailSchema, uuidSchema, waNumberSchema } from "./common";
+import { emailSchema, uuidSchema } from "./common";
 import { DeliveryChannel } from "./enums";
 
 export const requestDeliverySchema = z
   .object({
     channel: z.nativeEnum(DeliveryChannel),
     email: emailSchema.optional(),
-    waNumber: waNumberSchema.optional(),
   })
   .superRefine((v, ctx) => {
     if (v.channel === DeliveryChannel.EMAIL && !v.email) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["email"], message: "Email required" });
-    }
-    if (v.channel === DeliveryChannel.WHATSAPP && !v.waNumber) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["waNumber"], message: "WhatsApp number required" });
     }
   });
 export type RequestDeliveryInput = z.infer<typeof requestDeliverySchema>;

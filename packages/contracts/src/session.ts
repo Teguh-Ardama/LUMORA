@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { emailSchema, idempotencyKeySchema, uuidSchema, waNumberSchema } from "./common";
+import { emailSchema, idempotencyKeySchema, uuidSchema } from "./common";
 import { CaptureSource } from "./enums";
 
 export const startSessionSchema = z.object({
@@ -18,7 +18,6 @@ export const updateSessionSchema = z.object({
   filterId: uuidSchema.optional(),
   guestName: z.string().trim().max(120).nullish(),
   guestEmail: emailSchema.nullish(),
-  guestWaNumber: waNumberSchema.nullish(),
 });
 export type UpdateSessionInput = z.infer<typeof updateSessionSchema>;
 

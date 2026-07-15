@@ -22,7 +22,6 @@ export interface SessionPayload {
   captureSource: "WEBCAM" | "BRIDGE";
   guestName: string | null;
   guestEmail: string | null;
-  guestWaNumber: string | null;
   border: { id: string; name: string } | null;
   layout: { id: string; name: string; mode: string; photoCount: number; config: LayoutConfig };
   filter: { id: string; name: string; kind: string };
@@ -127,10 +126,10 @@ export function useMintQr() {
 
 export function useRequestDelivery() {
   return useMutation({
-    mutationFn: (input: { sessionId: string; channel: "EMAIL" | "WHATSAPP"; email?: string; waNumber?: string }) =>
-      apiClient.post<{ deliveryId: string; status: string; waLink: string | null }>(
+    mutationFn: (input: { sessionId: string; email: string }) =>
+      apiClient.post<{ deliveryId: string; status: string }>(
         `/api/sessions/${input.sessionId}/deliveries`,
-        { channel: input.channel, email: input.email, waNumber: input.waNumber },
+        { channel: "EMAIL", email: input.email },
       ),
   });
 }
