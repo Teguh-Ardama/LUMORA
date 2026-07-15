@@ -27,11 +27,6 @@ const envSchema = z
     SMTP_PASS: z.string().optional(),
     SMTP_FROM: z.string().default("LUMORA <no-reply@lumora.app>"),
 
-    WHATSAPP_DRIVER: z.enum(["link", "twilio"]).default("link"),
-    TWILIO_ACCOUNT_SID: z.string().optional(),
-    TWILIO_AUTH_TOKEN: z.string().optional(),
-    TWILIO_WHATSAPP_FROM: z.string().optional(),
-
     // ── Billing ──
     PAYMENT_DRIVER: z.enum(["dev", "xendit"]).default("dev"),
     XENDIT_SECRET_KEY: z.string().optional(),
@@ -48,9 +43,6 @@ const envSchema = z
     }
     if (env.EMAIL_DRIVER === "smtp" && !env.SMTP_HOST) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: "EMAIL_DRIVER=smtp requires SMTP_HOST" });
-    }
-    if (env.WHATSAPP_DRIVER === "twilio" && (!env.TWILIO_ACCOUNT_SID || !env.TWILIO_AUTH_TOKEN || !env.TWILIO_WHATSAPP_FROM)) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "WHATSAPP_DRIVER=twilio requires Twilio credentials" });
     }
     if (env.PAYMENT_DRIVER === "xendit" && (!env.XENDIT_SECRET_KEY || !env.XENDIT_CALLBACK_TOKEN)) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: "PAYMENT_DRIVER=xendit requires XENDIT_SECRET_KEY and XENDIT_CALLBACK_TOKEN" });

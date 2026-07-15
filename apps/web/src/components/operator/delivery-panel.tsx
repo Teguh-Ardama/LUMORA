@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import QRCode from "qrcode";
-import { ExternalLink, Mail, MessageCircle, Printer, QrCode } from "lucide-react";
+import { ExternalLink, Mail, Printer, QrCode } from "lucide-react";
 import {
   Button,
   Input,
@@ -18,7 +18,7 @@ import { useMintQr, usePrint, useRequestDelivery } from "@/lib/hooks/use-operato
 import { apiClient, ApiClientError } from "@/lib/api";
 
 /**
- * READY-state panel: dynamic QR (FR-06), WA/email delivery, and 4R print.
+ * READY-state panel: dynamic QR (FR-06), email delivery, and 4R print.
  * The QR lives only in component state — starting a new session unmounts
  * it and the server revokes the token, so the old code is truly dead.
  */
@@ -30,7 +30,6 @@ export function DeliveryPanel({ sessionId, composedUrl }: { sessionId: string; c
   const [qrDataUrl, setQrDataUrl] = React.useState<string | null>(null);
   const [galleryUrl, setGalleryUrl] = React.useState<string | null>(null);
   const [email, setEmail] = React.useState("");
-  const [waNumber, setWaNumber] = React.useState("");
   const printImgRef = React.useRef<HTMLImageElement>(null);
 
   const showQr = async () => {
@@ -45,30 +44,11 @@ export function DeliveryPanel({ sessionId, composedUrl }: { sessionId: string; c
 
   const sendEmail = async () => {
     try {
-      await requestDelivery.mutateAsync({ sessionId, channel: "EMAIL", email: email.trim() });
+      await requestDelivery.mutateAsync({ sessionId, email: email.trim() });
       toast.success(`Photos queued for ${email.trim()}`);
       setEmail("");
     } catch (err) {
       toast.error(err instanceof ApiClientError ? err.message : "Email delivery failed");
-    }
-  };
-
-  const sendWhatsApp = async () => {
-    try {
-      const result = await requestDelivery.mutateAsync({
-        sessionId,
-        channel: "WHATSAPP",
-        waNumber: waNumber.trim(),
-      });
-      if (result.waLink) {
-        window.open(result.waLink, "_blank", "noopener,noreferrer");
-        toast.success("WhatsApp chat opened with the download link");
-      } else {
-        toast.success("WhatsApp delivery queued");
-      }
-      setWaNumber("");
-    } catch (err) {
-      toast.error(err instanceof ApiClientError ? err.message : "WhatsApp delivery failed");
     }
   };
 
@@ -98,9 +78,6 @@ export function DeliveryPanel({ sessionId, composedUrl }: { sessionId: string; c
           <TabsTrigger value="qr" className="flex-1">
             <QrCode className="mr-1.5 h-4 w-4" /> QR
           </TabsTrigger>
-          <TabsTrigger value="whatsapp" className="flex-1">
-            <MessageCircle className="mr-1.5 h-4 w-4" /> WhatsApp
-          </TabsTrigger>
           <TabsTrigger value="email" className="flex-1">
             <Mail className="mr-1.5 h-4 w-4" /> Email
           </TabsTrigger>
@@ -127,22 +104,6 @@ export function DeliveryPanel({ sessionId, composedUrl }: { sessionId: string; c
               <QrCode /> Show QR for guest
             </Button>
           )}
-        </TabsContent>
-
-        <TabsContent value="whatsapp" className="space-y-2">
-          <Label htmlFor="wa-number">WhatsApp number</Label>
-          <div className="flex gap-2">
-            <Input
-              id="wa-number"
-              placeholder="+62812345678"
-              value={waNumber}
-              onChange={(e) => setWaNumber(e.target.value)}
-              inputMode="tel"
-            />
-            <Button onClick={sendWhatsApp} loading={requestDelivery.isPending} disabled={waNumber.trim().length < 8}>
-              Send
-            </Button>
-          </div>
         </TabsContent>
 
         <TabsContent value="email" className="space-y-2">

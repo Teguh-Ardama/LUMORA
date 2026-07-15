@@ -30,6 +30,7 @@ export type SessionStatus = (typeof SessionStatus)[keyof typeof SessionStatus];
 export const CaptureSource = {
   WEBCAM: "WEBCAM",
   BRIDGE: "BRIDGE",
+  REMOTE_MOBILE: "REMOTE_MOBILE",
 } as const;
 export type CaptureSource = (typeof CaptureSource)[keyof typeof CaptureSource];
 
@@ -43,7 +44,6 @@ export type PhotoStatus = (typeof PhotoStatus)[keyof typeof PhotoStatus];
 export const DeliveryChannel = {
   QR: "QR",
   EMAIL: "EMAIL",
-  WHATSAPP: "WHATSAPP",
 } as const;
 export type DeliveryChannel = (typeof DeliveryChannel)[keyof typeof DeliveryChannel];
 
@@ -108,6 +108,19 @@ export const NotificationKind = {
   TOPUP_PAID: "TOPUP_PAID",
 } as const;
 export type NotificationKind = (typeof NotificationKind)[keyof typeof NotificationKind];
+
+export const StickerAnchor = {
+  FOREHEAD: "FOREHEAD",
+  LEFT_EYE: "LEFT_EYE",
+  RIGHT_EYE: "RIGHT_EYE",
+  NOSE: "NOSE",
+  MOUTH: "MOUTH",
+  CHIN: "CHIN",
+  LEFT_EAR: "LEFT_EAR",
+  RIGHT_EAR: "RIGHT_EAR",
+  FULL_FACE: "FULL_FACE",
+} as const;
+export type StickerAnchor = (typeof StickerAnchor)[keyof typeof StickerAnchor];
 
 export const AuditAction = {
   CREATE: "CREATE",

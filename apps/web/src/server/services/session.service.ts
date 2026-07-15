@@ -111,7 +111,6 @@ export async function serializeSession(session: SessionWithRelations) {
     captureSource: session.captureSource,
     guestName: session.guestName,
     guestEmail: session.guestEmail,
-    guestWaNumber: session.guestWaNumber,
     border: session.border ? { id: session.border.id, name: session.border.name } : null,
     layout: {
       id: session.layout.id,
@@ -216,7 +215,6 @@ export const sessionService = {
       ...(input.filterId ? { filterId: input.filterId } : {}),
       ...(input.guestName !== undefined ? { guestName: input.guestName } : {}),
       ...(input.guestEmail !== undefined ? { guestEmail: input.guestEmail } : {}),
-      ...(input.guestWaNumber !== undefined ? { guestWaNumber: input.guestWaNumber } : {}),
     });
     return serializeSession(updated);
   },
@@ -345,12 +343,10 @@ export const sessionService = {
     if (session.status !== "READY") throw badRequest("Session is not composed yet");
     if (input.channel === "QR") throw badRequest("Use the QR endpoint for QR delivery");
 
-    const recipient = input.channel === "EMAIL" ? input.email! : input.waNumber!;
+    const recipient = input.email!;
 
-    // Persist guest contact on the session for analytics / re-delivery.
-    await sessionRepo.update(sessionId, {
-      ...(input.channel === "EMAIL" ? { guestEmail: recipient } : { guestWaNumber: recipient }),
-    });
+    // Persist guest email on the session for analytics / re-delivery.
+    await sessionRepo.update(sessionId, { guestEmail: recipient });
 
     const delivery = await deliveryRepo.create({
       organizationId: user.organizationId,
@@ -372,18 +368,7 @@ export const sessionService = {
       metadata: { channel: input.channel, sessionId },
     });
 
-    // For the zero-config WhatsApp driver the operator opens the chat link
-    // directly; build it here so the UI needs no provider knowledge.
-    let waLink: string | null = null;
-    if (input.channel === "WHATSAPP" && getEnv().WHATSAPP_DRIVER === "link") {
-      const qr = await this.mintQrToken(user, sessionId);
-      const text = encodeURIComponent(
-        `Your photos from ${session.event.name} are ready! Download them here: ${qr.url}`,
-      );
-      waLink = `https://wa.me/${recipient.replace(/^\+/, "")}?text=${text}`;
-    }
-
-    return { deliveryId: delivery.id, status: delivery.status, waLink };
+    return { deliveryId: delivery.id, status: delivery.status };
   },
 
   async createPrintJob(user: SessionUser, sessionId: string, copies: number) {

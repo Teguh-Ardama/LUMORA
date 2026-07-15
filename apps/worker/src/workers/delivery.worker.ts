@@ -15,7 +15,6 @@ import {
 } from "@lumora/core";
 import { deliveryRepo, deliveryTokenRepo } from "@lumora/db";
 import { getEmailProvider } from "../providers/email";
-import { getWhatsAppProvider } from "../providers/whatsapp";
 
 const log = createLogger("delivery");
 
@@ -58,13 +57,6 @@ export function startDeliveryWorker(): Worker<DeliveryJobData> {
                 <p style="color:#999;font-size:12px">This link expires in ${DELIVERY_TOKEN_TTL_HOURS} hours and is private to you.</p>
               </div>`,
           });
-        } else if (delivery.channel === "WHATSAPP") {
-          const url = await mintGuestUrl(delivery.sessionId);
-          const sent = await getWhatsAppProvider().send(
-            delivery.recipient,
-            `Your photos from ${delivery.event.name} are ready! Download here: ${url} (expires in ${DELIVERY_TOKEN_TTL_HOURS}h)`,
-          );
-          if (!sent) throw new Error("WhatsApp provider refused the message");
         }
         // QR deliveries are recorded synchronously at mint time; nothing to do.
 

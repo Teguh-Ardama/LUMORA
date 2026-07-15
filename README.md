@@ -68,7 +68,7 @@ pnpm dev:bridge
 ## Delivery providers
 
 - **Email**: `EMAIL_DRIVER=console` (dev, logs the mail) or `smtp` (+ SMTP_* vars).
-- **WhatsApp**: `WHATSAPP_DRIVER=link` (zero-config wa.me click-to-chat opened on the operator screen) or `twilio` (WhatsApp Business API push). Numbers are normalized server-side — local Indonesian input (`0812…`) is rewritten to `62812…` before validation, so operators can type either format.
+- **WhatsApp**: `WHATSAPP_DRIVER=link` (zero-config wa.me click-to-chat opened on the operator screen) or `twilio` (WhatsApp Business API push).
 
 ## Billing (prepaid credit)
 
@@ -96,16 +96,6 @@ For the phone-camera + laptop-display setup: open **`/operator/<eventId>/display
 - **READY → big QR auto-appears** (auto-minted) + WhatsApp/email form + print — no refresh;
 - starting a new session kills the QR instantly (server-side revocation, FR-06).
 
-## Testing guest delivery off-network (public tunnel)
-
-`APP_URL=http://localhost:3000` only works for guests on the same machine/network. To let guests open QR/WhatsApp/email links from their own phone (mobile data, different Wi-Fi) while developing locally, run:
-
-```bash
-pnpm tunnel                        # opens a Cloudflare quick tunnel, rewrites APP_URL in .env
-```
-
-Then **restart** `pnpm dev:web` (APP_URL is cached at process start) and open the dashboard/operator console through the printed `https://*.trycloudflare.com` URL instead of `localhost:3000` — the CSRF check rejects requests whose `Origin` doesn't match `APP_URL`. The tunnel is ephemeral (no Cloudflare account): the URL changes every run and comes with no uptime guarantee, so it's for testing only — production deployments should set `APP_URL` to a real domain.
-
 ## Desktop Bridge pairing
 
 Dashboard → Event → **Pair Bridge** → an 8-char code (10 min TTL). Enter it in the Bridge app with the server URL. The bridge receives a device JWT, heartbeats every 15 s, watches the tether folder (`awaitWriteFinish` debounce), compresses with Sharp, and uploads with a durable offline queue + exponential backoff. Photos arriving with no active bridge session are **quarantined** and can be attached from the operator's Inbox.
@@ -128,7 +118,6 @@ Dashboard → Event → **Pair Bridge** → an 8-char code (10 min TTL). Enter i
 | `pnpm typecheck` | typecheck every workspace |
 | `pnpm build` | production builds |
 | `pnpm db:migrate` / `db:push` / `db:seed` / `db:generate` | Prisma lifecycle |
-| `pnpm tunnel` | Cloudflare quick tunnel to `localhost:3000` + auto-update `APP_URL` (see below) |
 | `pnpm --filter @lumora/bridge dist` | package the Bridge installer (electron-builder) |
 
 ## Production notes

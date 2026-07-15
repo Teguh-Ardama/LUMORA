@@ -27,19 +27,6 @@ export function paginate<T>(items: T[], total: number, q: PaginationQuery): Pagi
   };
 }
 
-/**
- * E.164-ish WhatsApp number. Accepts local Indonesian input (leading 0,
- * spaces/dashes, optional +) and normalizes to bare digits with country
- * code (e.g. "0812-345-678" -> "62812345678") so downstream wa.me links
- * and provider APIs always receive a dialable number.
- */
-export const waNumberSchema = z
-  .string()
-  .trim()
-  .transform((v) => v.replace(/[\s\-()]/g, ""))
-  .transform((v) => (v.startsWith("0") ? `62${v.slice(1)}` : v.replace(/^\+/, "")))
-  .refine((v) => /^[1-9]\d{7,14}$/.test(v), "Invalid WhatsApp number");
-
 export const emailSchema = z.string().trim().toLowerCase().email().max(255);
 
 export const idempotencyKeySchema = z.string().min(8).max(128);
