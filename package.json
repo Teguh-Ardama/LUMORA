@@ -17,7 +17,8 @@
     "db:seed": "pnpm --filter @lumora/db db:seed",
     "dev:web": "pnpm --filter @lumora/web dev",
     "dev:worker": "pnpm --filter @lumora/worker dev",
-    "dev:bridge": "pnpm --filter @lumora/bridge dev"
+    "dev:bridge": "pnpm --filter @lumora/bridge dev",
+    "tunnel": "node scripts/tunnel.mjs"
   },
   "devDependencies": {
     "turbo": "2.3.3",
