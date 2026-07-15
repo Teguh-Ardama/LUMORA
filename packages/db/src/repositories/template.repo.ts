@@ -62,3 +62,19 @@ export const filterRepo = {
   update: (id: string, data: Prisma.FilterUncheckedUpdateInput) =>
     prisma.filter.update({ where: { id }, data }),
 };
+
+export const stickerRepo = {
+  findById: (id: string) => prisma.sticker.findUnique({ where: { id } }),
+
+  listVisible(organizationId: string, eventId?: string) {
+    return prisma.sticker.findMany({
+      where: visibilityWhere(organizationId, eventId),
+      orderBy: [{ organizationId: { sort: "asc", nulls: "first" } }, { createdAt: "desc" }],
+    });
+  },
+
+  create: (data: Prisma.StickerUncheckedCreateInput) => prisma.sticker.create({ data }),
+  update: (id: string, data: Prisma.StickerUncheckedUpdateInput) =>
+    prisma.sticker.update({ where: { id }, data }),
+  delete: (id: string) => prisma.sticker.delete({ where: { id } }),
+};
