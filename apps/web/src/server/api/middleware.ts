@@ -63,8 +63,12 @@ export const csrfProtection: MiddlewareHandler = async (c, next) => {
 
   const origin = c.req.header("origin");
   if (origin) {
-    const expected = new URL(getEnv().APP_URL).origin;
-    if (origin !== expected) {
+    const env = getEnv();
+    const expected = new URL(env.APP_URL).origin;
+    const isLocalHost = origin.startsWith("http://localhost:") || origin.startsWith("http://127.0.0.1:");
+    const isDev = env.NODE_ENV === "development";
+    
+    if (origin !== expected && !(isDev && isLocalHost)) {
       throw new ApiError(ApiErrorCode.FORBIDDEN, "Cross-origin request rejected", 403);
     }
   }

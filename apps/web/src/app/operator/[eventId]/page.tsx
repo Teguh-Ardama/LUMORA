@@ -59,6 +59,14 @@ import { WebcamPanel } from "@/components/operator/webcam-panel";
 import { DeliveryPanel } from "@/components/operator/delivery-panel";
 import { ApiClientError } from "@/lib/api";
 
+/** The composer stretches borders to fill the layout canvas exactly — a
+ * portrait border on a landscape layout (or vice versa) ships a warped
+ * frame in the final photo, so only orientation-matching borders are
+ * offered per layout. */
+function isLandscape(dims: { width: number; height: number }): boolean {
+  return dims.width >= dims.height;
+}
+
 export default function OperatorWorkspacePage() {
   const { eventId } = useParams<{ eventId: string }>();
   const { data: ctx, isLoading, isError, refetch } = useOperatorContext(eventId);
@@ -83,6 +91,19 @@ export default function OperatorWorkspacePage() {
     setBorderId((prev) => prev || ctx.event.defaultBorderId || "");
     setFilterId((prev) => prev || ctx.filters[0]?.id || "");
   }, [ctx]);
+
+  // Keep the pre-session border pick orientation-matched to the layout —
+  // catches both a manual layout switch and mismatched event defaults.
+  React.useEffect(() => {
+    if (!ctx || !layoutId) return;
+    const layout = ctx.layouts.find((l) => l.id === layoutId);
+    if (!layout) return;
+    const current = ctx.borders.find((b) => b.id === borderId);
+    if (current && isLandscape(current) !== isLandscape(layout.config.canvas)) {
+      const fallback = ctx.borders.find((b) => isLandscape(b) === isLandscape(layout.config.canvas));
+      setBorderId(fallback?.id ?? "");
+    }
+  }, [ctx, layoutId, borderId]);
 
   useEventStream(eventId, (event) => {
     if (event.type === "photo.quarantined") {
@@ -116,6 +137,9 @@ export default function OperatorWorkspacePage() {
   }
 
   const selectedLayout = ctx.layouts.find((l) => l.id === (session?.layout.id ?? layoutId));
+  const compatibleBorders = selectedLayout
+    ? ctx.borders.filter((b) => isLandscape(b) === isLandscape(selectedLayout.config.canvas))
+    : ctx.borders;
   const framesTotal = session
     ? Math.max(...session.layout.config.slots.map((s) => s.photoIndex)) + 1
     : selectedLayout
@@ -309,7 +333,7 @@ export default function OperatorWorkspacePage() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="none">No border</SelectItem>
-                        {ctx.borders.map((b) => (
+                        {compatibleBorders.map((b) => (
                           <SelectItem key={b.id} value={b.id}>
                             {b.name}
                           </SelectItem>
@@ -427,7 +451,16 @@ export default function OperatorWorkspacePage() {
                     </div>
                     <div className="space-y-1.5">
                       <Label className="text-xs uppercase tracking-wide text-muted-foreground">Layout</Label>
-                      <Select value={session.layout.id} onValueChange={(v) => changeSetting({ layoutId: v })}>
+                      <Select
+                        value={session.layout.id}
+                        onValueChange={(v) => {
+                          const newLayout = ctx.layouts.find((l) => l.id === v);
+                          const currentBorder = ctx.borders.find((b) => b.id === session.border?.id);
+                          const mismatched =
+                            newLayout && currentBorder && isLandscape(currentBorder) !== isLandscape(newLayout.config.canvas);
+                          changeSetting(mismatched ? { layoutId: v, borderId: null } : { layoutId: v });
+                        }}
+                      >
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
@@ -451,7 +484,7 @@ export default function OperatorWorkspacePage() {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="none">No border</SelectItem>
-                          {ctx.borders.map((b) => (
+                          {compatibleBorders.map((b) => (
                             <SelectItem key={b.id} value={b.id}>
                               {b.name}
                             </SelectItem>

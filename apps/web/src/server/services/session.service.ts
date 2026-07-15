@@ -43,28 +43,58 @@ function badRequest(message: string): ApiError {
   return new ApiError(ApiErrorCode.VALIDATION, message, 422);
 }
 
+/**
+ * Cross-checks border vs. layout orientation. The composer stretches the
+ * border PNG to fill the layout canvas exactly (`fit: "fill"`); pairing a
+ * portrait strip border with a landscape grid layout (or vice versa) does
+ * not just look wrong in the operator preview — it ships a warped border
+ * (illegible caption text, a stray divider bar over the photos) in the
+ * final composed/printed output. `existing` supplies the session's current
+ * border/layout as a fallback when an update only touches one of the two.
+ */
 async function validateSessionConfig(
   organizationId: string,
   eventId: string,
   ids: { borderId?: string | null; layoutId?: string; filterId?: string },
+  existing?: SessionWithRelations,
 ) {
+  let layoutCanvas = existing ? layoutConfigSchema.parse(existing.layout.config).canvas : undefined;
+  let borderDims: { width: number; height: number } | null | undefined = existing
+    ? existing.border
+      ? { width: existing.border.width, height: existing.border.height }
+      : null
+    : undefined;
+
   if (ids.layoutId) {
     const layout = await layoutRepo.findById(ids.layoutId);
     if (!layout || (layout.organizationId && layout.organizationId !== organizationId))
       throw badRequest("Layout not available for this organization");
     if (layout.eventId && layout.eventId !== eventId) throw badRequest("Layout belongs to another event");
-    layoutConfigSchema.parse(layout.config);
+    layoutCanvas = layoutConfigSchema.parse(layout.config).canvas;
   }
-  if (ids.borderId) {
-    const border = await borderRepo.findById(ids.borderId);
-    if (!border || (border.organizationId && border.organizationId !== organizationId))
-      throw badRequest("Border not available for this organization");
-    if (border.eventId && border.eventId !== eventId) throw badRequest("Border belongs to another event");
+  if (ids.borderId !== undefined) {
+    if (ids.borderId === null) {
+      borderDims = null;
+    } else {
+      const border = await borderRepo.findById(ids.borderId);
+      if (!border || (border.organizationId && border.organizationId !== organizationId))
+        throw badRequest("Border not available for this organization");
+      if (border.eventId && border.eventId !== eventId) throw badRequest("Border belongs to another event");
+      borderDims = { width: border.width, height: border.height };
+    }
   }
   if (ids.filterId) {
     const filter = await filterRepo.findById(ids.filterId);
     if (!filter || (filter.organizationId && filter.organizationId !== organizationId))
       throw badRequest("Filter not available for this organization");
+  }
+
+  if (layoutCanvas && borderDims) {
+    const layoutIsLandscape = layoutCanvas.width >= layoutCanvas.height;
+    const borderIsLandscape = borderDims.width >= borderDims.height;
+    if (layoutIsLandscape !== borderIsLandscape) {
+      throw badRequest("Border orientation doesn't match the selected layout");
+    }
   }
 }
 
@@ -118,7 +148,11 @@ export const sessionService = {
     // Billing gate: new sessions need credit; the in-flight one always finishes.
     await billingService.assertCanStartSession(user.organizationId);
 
-    await validateSessionConfig(user.organizationId, input.eventId, input);
+    await validateSessionConfig(user.organizationId, input.eventId, {
+      layoutId: input.layoutId,
+      borderId: input.borderId ?? null,
+      filterId: input.filterId,
+    });
 
     const previous = await sessionRepo.findActiveForEvent(input.eventId);
     if (previous) {
@@ -170,11 +204,12 @@ export const sessionService = {
     if (session.status !== "CAPTURING" && (input.layoutId || input.borderId !== undefined || input.filterId)) {
       throw badRequest("Layout, border, and filter can only change while capturing");
     }
-    await validateSessionConfig(user.organizationId, session.eventId, {
-      borderId: input.borderId ?? undefined,
-      layoutId: input.layoutId,
-      filterId: input.filterId,
-    });
+    await validateSessionConfig(
+      user.organizationId,
+      session.eventId,
+      { borderId: input.borderId, layoutId: input.layoutId, filterId: input.filterId },
+      session,
+    );
     const updated = await sessionRepo.update(sessionId, {
       ...(input.borderId !== undefined ? { borderId: input.borderId } : {}),
       ...(input.layoutId ? { layoutId: input.layoutId } : {}),
