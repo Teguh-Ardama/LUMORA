@@ -180,7 +180,6 @@ model Organization {
   notifications Notification[]
   creditTransactions CreditTransaction[]
   topups        Topup[]
-  stickers      Sticker[]
 
   @@map("organizations")
 }
@@ -268,7 +267,6 @@ model Event {
   deliveries    Delivery[]
   printJobs     PrintJob[]
   bridgeDevices BridgeDevice[]
-  stickers      Sticker[]       @relation("EventStickers")
 
   @@index([organizationId, status])
   @@index([organizationId, startsAt])

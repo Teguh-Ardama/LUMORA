@@ -39,18 +39,31 @@ export function startComposeWorker(): Worker<ComposeJobData> {
       const storage = getStorage();
 
       try {
-        // Ordered raw frames (photoIndex = array position).
-        const photoBuffers = await Promise.all(
-          session.photos.map((p) => storage.getObject(p.storageKey)),
-        );
-        const borderPng = session.border ? await storage.getObject(session.border.storageKey) : null;
-        const filterParams = filterParamsSchema.parse(session.filter.params);
+        // Parallel fetch: photos + border + stickers
+        const [photoBuffers, borderPng, stickerBuffers, filterParams] = await Promise.all([
+          Promise.all(session.photos.map((p) => storage.getObject(p.storageKey))),
+          session.border ? storage.getObject(session.border.storageKey) : Promise.resolve(null),
+          session.sessionStickers?.length
+            ? Promise.all(
+                session.sessionStickers.map((ss: { sticker: { storageKey: string }; offsetX?: number; offsetY?: number; scale?: number }) =>
+                  storage.getObject(ss.sticker.storageKey).then((png: Buffer) => ({
+                    png,
+                    offsetX: ss.offsetX ?? 0,
+                    offsetY: ss.offsetY ?? 0,
+                    scale: ss.scale ?? 1.0,
+                  })),
+                ),
+              )
+            : Promise.resolve(undefined),
+          Promise.resolve(filterParamsSchema.parse(session.filter.params)),
+        ]);
 
         const result = await composeSession({
           photos: photoBuffers,
           layoutConfig: session.layout.config,
           borderPng,
           filterParams,
+          stickers: stickerBuffers,
         });
 
         const composedKey = storageKeys.composed(session.organizationId, session.eventId, session.id);

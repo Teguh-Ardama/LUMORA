@@ -24,8 +24,8 @@ export async function compressBitmapToTarget(
   bitmap: ImageBitmap,
   opts: BrowserCompressOptions,
 ): Promise<BrowserCompressResult> {
-  const maxLongEdge = opts.maxLongEdge ?? 2400;
-  const qualities = [0.9, 0.84, 0.78, 0.7, 0.62];
+  const maxLongEdge = opts.maxLongEdge ?? 3600; // Naikin dari 2400px → 3600px biar detail cetak lebih tajam
+  const qualities = [0.95, 0.92, 0.88, 0.84, 0.78]; // Naikin ladder quality
   let longEdge = Math.min(maxLongEdge, Math.max(bitmap.width, bitmap.height));
 
   while (true) {

@@ -6,6 +6,7 @@ export const QueueName = {
   DELIVERY: "lumora-delivery",
   NOTIFICATION: "lumora-notification",
   CLEANUP: "lumora-cleanup",
+  RETENTION: "lumora-retention",
 } as const;
 export type QueueName = (typeof QueueName)[keyof typeof QueueName];
 

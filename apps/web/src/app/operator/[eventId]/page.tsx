@@ -214,7 +214,7 @@ export default function OperatorWorkspacePage() {
 
   // Live preview inputs for the capture feed.
   const previewCssFilter = cssFilterFromParams(activeFilterParams, lutEnabled);
-  const borderOverlayUrl = session?.border
+  const borderOverlayUrl = session?.border && framesCaptured >= framesTotal
     ? (ctx.borders.find((b) => b.id === session.border!.id)?.imageUrl ?? null)
     : null;
 

@@ -8,6 +8,7 @@ const log = createLogger("storage");
 
 export interface StorageDriver {
   putObject(args: { key: string; body: Buffer; contentType?: string }): Promise<void>;
+  getObject(key: string): Promise<Buffer>;
   getSignedUrl(key: string, ttlSeconds: number): Promise<string>;
   deleteObject(key: string): Promise<void>;
 }
@@ -30,6 +31,11 @@ class LocalStorageDriver implements StorageDriver {
     await fs.mkdir(path.dirname(fullPath), { recursive: true });
     await fs.writeFile(fullPath, body);
     log.debug("putObject (local)", { key });
+  }
+
+  async getObject(key: string): Promise<Buffer> {
+    const fullPath = this.getPath(key);
+    return fs.readFile(fullPath);
   }
 
   async getSignedUrl(key: string, _ttlSeconds: number): Promise<string> {
@@ -66,6 +72,17 @@ class SupabaseStorageDriver implements StorageDriver {
       log.error("Supabase upload error", { error, key });
       throw new Error(`Storage upload failed: ${error.message}`);
     }
+  }
+
+  async getObject(key: string): Promise<Buffer> {
+    const { data, error } = await this.client.storage
+      .from(this.bucket)
+      .download(key);
+    if (error) {
+      log.error("Supabase download error", { error, key });
+      throw new Error(`Storage download failed: ${error.message}`);
+    }
+    return Buffer.from(await data.arrayBuffer());
   }
 
   async getSignedUrl(key: string, ttlSeconds: number): Promise<string> {
