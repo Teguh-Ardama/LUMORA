@@ -3,6 +3,7 @@ import { authRoute } from "./routes/auth.route";
 import { orgRoute } from "./routes/org.route";
 import { eventRoute } from "./routes/event.route";
 import { templateRoute } from "./routes/template.route";
+import { eventAnalyticsRoute } from "./routes/analytics.route";
 import { printRoute, sessionRoute } from "./routes/session.route";
 import { bridgeAdminRoute, bridgeRoute } from "./routes/bridge.route";
 import { galleryRoute } from "./routes/gallery.route";
@@ -20,6 +21,7 @@ export const api = new Hono<ApiEnv>()
   .onError((err, c) => errorResponse(c, err))
   .route("/auth", authRoute)
   .route("/org", orgRoute)
+  .route("/analytics", analyticsRoute)
   .route("/events", eventRoute)
   .route("/templates", templateRoute)
   .route("/sessions", sessionRoute)
@@ -27,7 +29,7 @@ export const api = new Hono<ApiEnv>()
   .route("/bridge", bridgeRoute)
   .route("/bridge-devices", bridgeAdminRoute)
   .route("/gallery", galleryRoute)
-  .route("/analytics", analyticsRoute)
+  .route("/analytics", eventAnalyticsRoute)
   .route("/audit-logs", auditRoute)
   .route("/deliveries", deliveriesRoute)
   // Webhook first: it must match before billingRoute's requireAuth middleware.
