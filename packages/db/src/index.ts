@@ -21,6 +21,7 @@ export type {
   Filter,
   Session,
   Photo,
+  Sticker,
   DeliveryToken,
   Delivery,
   PrintJob,
