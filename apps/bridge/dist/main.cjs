@@ -228,12 +228,12 @@ var EventStatus = {
 };
 var CaptureSource = {
   WEBCAM: "WEBCAM",
-  BRIDGE: "BRIDGE"
+  BRIDGE: "BRIDGE",
+  REMOTE_MOBILE: "REMOTE_MOBILE"
 };
 var DeliveryChannel = {
   QR: "QR",
-  EMAIL: "EMAIL",
-  WHATSAPP: "WHATSAPP"
+  EMAIL: "EMAIL"
 };
 var LayoutMode = {
   GRID: "GRID",
@@ -4406,7 +4406,6 @@ var paginationQuerySchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
   search: z.string().trim().max(200).optional()
 });
-var waNumberSchema = z.string().trim().regex(/^\+?[1-9]\d{7,14}$/, "Invalid WhatsApp number");
 var emailSchema = z.string().trim().toLowerCase().email().max(255);
 var idempotencyKeySchema = z.string().min(8).max(128);
 
@@ -4523,6 +4522,13 @@ var createFilterSchema = z.object({
   kind: z.nativeEnum(FilterKind),
   params: filterParamsSchema
 });
+var createStickerSchema = z.object({
+  name: z.string().trim().min(1).max(255),
+  anchorPoint: z.enum(["FOREHEAD", "LEFT_EYE", "RIGHT_EYE", "NOSE", "MOUTH", "CHIN", "LEFT_EAR", "RIGHT_EAR", "FULL_FACE"]),
+  defaultScale: z.coerce.number().min(0.1).max(5).default(1),
+  defaultOffsetX: z.coerce.number().default(0),
+  defaultOffsetY: z.coerce.number().default(0)
+});
 
 // ../../packages/contracts/src/session.ts
 var startSessionSchema = z.object({
@@ -4538,32 +4544,28 @@ var updateSessionSchema = z.object({
   layoutId: uuidSchema.optional(),
   filterId: uuidSchema.optional(),
   guestName: z.string().trim().max(120).nullish(),
-  guestEmail: emailSchema.nullish(),
-  guestWaNumber: waNumberSchema.nullish()
+  guestEmail: emailSchema.nullish()
 });
 var uploadPhotoFieldsSchema = z.object({
-  sequence: z.coerce.number().int().min(0).max(11),
-  idempotencyKey: idempotencyKeySchema,
-  capturedAt: z.coerce.date().optional()
+  sequence: z.coerce.number().int().min(0),
+  idempotencyKey: z.string().trim().min(5),
+  capturedAt: z.coerce.date().optional(),
+  filterId: uuidSchema.optional()
 });
 var composeRequestSchema = z.object({
   idempotencyKey: idempotencyKeySchema
 });
-var PHOTO_UPLOAD_MAX_BYTES = 4 * 1024 * 1024;
-var PHOTO_TARGET_MAX_BYTES = Math.round(1.5 * 1024 * 1024);
-var PHOTO_MIN_LONG_EDGE = 1200;
+var PHOTO_UPLOAD_MAX_BYTES = 8 * 1024 * 1024;
+var PHOTO_TARGET_MAX_BYTES = Math.round(3.5 * 1024 * 1024);
+var PHOTO_MIN_LONG_EDGE = 1800;
 
 // ../../packages/contracts/src/delivery.ts
 var requestDeliverySchema = z.object({
   channel: z.nativeEnum(DeliveryChannel),
-  email: emailSchema.optional(),
-  waNumber: waNumberSchema.optional()
+  email: emailSchema.optional()
 }).superRefine((v, ctx) => {
   if (v.channel === DeliveryChannel.EMAIL && !v.email) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["email"], message: "Email required" });
-  }
-  if (v.channel === DeliveryChannel.WHATSAPP && !v.waNumber) {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["waNumber"], message: "WhatsApp number required" });
   }
 });
 var createPrintJobSchema = z.object({
@@ -4622,6 +4624,10 @@ var TOPUP_MAX_IDR = 5e7;
 var createTopupSchema = z.object({
   amount: z.number().int().min(TOPUP_MIN_IDR, `Minimum top-up is Rp${TOPUP_MIN_IDR.toLocaleString("id-ID")}`).max(TOPUP_MAX_IDR)
 });
+
+// ../../packages/image/src/server/compose.ts
+import_sharp2.default.cache({ files: 20, items: 100 });
+import_sharp2.default.concurrency(2);
 
 // ../../packages/image/src/server/inspect.ts
 var import_sharp3 = __toESM(require("sharp"), 1);

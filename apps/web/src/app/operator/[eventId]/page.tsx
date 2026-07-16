@@ -130,10 +130,10 @@ export default function OperatorWorkspacePage() {
 
   const qc = useQueryClient();
   const activeFilterParams = React.useMemo(() => {
-    const raw = ctx?.filters.find((f) => f.id === session?.filter.id)?.params;
+    const raw = ctx?.filters.find((f) => f.id === filterId)?.params;
     const parsed = filterParamsSchema.safeParse(raw);
     return parsed.success ? parsed.data : null;
-  }, [ctx?.filters, session?.filter.id]);
+  }, [ctx?.filters, filterId]);
 
   if (isLoading) return <LoadingState label="Preparing workspace…" className="min-h-screen" />;
   if (isError || !ctx) {
@@ -466,7 +466,7 @@ export default function OperatorWorkspacePage() {
                       <Label className="text-xs uppercase tracking-wide text-muted-foreground">
                         <Wand2 className="mr-1 inline h-3 w-3" /> Filter (guest request)
                       </Label>
-                      <Select disabled={session.status === "CAPTURING" && framesCaptured < framesTotal} value={session.filter.id} onValueChange={(v) => changeSetting({ filterId: v })}>
+                      <Select value={filterId} onValueChange={(v) => setFilterId(v)}>
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>

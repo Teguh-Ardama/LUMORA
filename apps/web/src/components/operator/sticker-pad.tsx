@@ -152,6 +152,16 @@ export const StickerPad = React.forwardRef<StickerPadRef, StickerPadProps>(
                 </div>
               );
             })}
+            
+            {/* Border Overlay */}
+            {session.border && (
+              <img
+                src={session.border.url}
+                alt="Border overlay"
+                className="absolute top-0 left-0 pointer-events-none z-20"
+                style={{ width: canvasW, height: canvasH }}
+              />
+            )}
           </div>
 
           {/* RND Overlays */}
@@ -197,28 +207,7 @@ export const StickerPad = React.forwardRef<StickerPadRef, StickerPadProps>(
           <p className="text-xs text-muted-foreground mt-1">Tap a photo to add filters, or add stickers</p>
         </div>
         
-        <div className="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar">
-          {filters && filters.length > 0 && selectedPhotoId && (
-            <div>
-              <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Photo Filter</h4>
-              <div className="grid grid-cols-2 gap-2">
-                {filters.map((f) => {
-                  const isActive = (photoFilters[selectedPhotoId] || (session.photos.find(p => p.id === selectedPhotoId) as any)?.filterId || session.filter?.id) === f.id;
-                  return (
-                    <button
-                      key={f.id}
-                      onClick={() => setPhotoFilters(prev => ({ ...prev, [selectedPhotoId]: f.id }))}
-                      className={`text-xs p-3 rounded-lg border transition-all ${isActive ? 'bg-primary/20 border-primary text-primary font-bold' : 'bg-card hover:bg-muted'}`}
-                    >
-                      {f.name}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          <div>
+        <div className="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar">          <div>
             <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Stickers</h4>
             <div className="grid grid-cols-2 gap-3 auto-rows-max">
               {stickers.map((st) => (

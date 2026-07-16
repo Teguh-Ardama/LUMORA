@@ -63,23 +63,39 @@ export async function composeSession(input: ComposeInput): Promise<ComposeOutput
     throw new Error(`Layout needs ${required} photos, session has ${input.photos.length}`);
   }
 
-  // Filter each distinct photo once, then reuse across duplicated slots.
-  const filteredCache = new Map<number, Buffer>();
-  async function filteredPhoto(photoIndex: number): Promise<Buffer> {
-    const cached = filteredCache.get(photoIndex);
-    if (cached) return cached;
-    const source = input.photos[photoIndex];
-    if (!source) throw new Error(`Missing photo at index ${photoIndex}`);
-    const out = await applyFilter(source.buffer, source.filterParams);
-    filteredCache.set(photoIndex, out);
-    return out;
+  async function processSlot(slot: LayoutSlot): Promise<Buffer> {
+    const source = input.photos[slot.photoIndex];
+    if (!source) throw new Error(`Missing photo at index ${slot.photoIndex}`);
+    
+    let pipeline = sharp(source.buffer, { failOn: "none" }).rotate();
+    
+    if (source.filterParams.grayscale) pipeline = pipeline.grayscale();
+    pipeline = pipeline.modulate({
+      brightness: source.filterParams.brightness,
+      ...(source.filterParams.grayscale ? {} : { saturation: source.filterParams.saturation }),
+      hue: source.filterParams.hue,
+    });
+    if (source.filterParams.gamma) pipeline = pipeline.gamma(source.filterParams.gamma);
+    if (source.filterParams.tint && !source.filterParams.grayscale) pipeline = pipeline.tint(source.filterParams.tint);
+
+    pipeline = pipeline.resize(slot.w, slot.h, { fit: "cover", position: "attention" });
+
+    if (slot.radius > 0) {
+      const mask = Buffer.from(
+        `<svg width="${slot.w}" height="${slot.h}"><rect x="0" y="0" width="${slot.w}" height="${slot.h}" rx="${slot.radius}" ry="${slot.radius}" fill="#fff"/></svg>`,
+      );
+      pipeline = pipeline.composite([{ input: mask, blend: "dest-in" }]).png();
+    } else {
+      pipeline = pipeline.jpeg({ quality: 95 });
+    }
+    
+    return pipeline.toBuffer();
   }
 
   const overlays: OverlayOptions[] = [];
   for (const slot of slots) {
-    const photo = await filteredPhoto(slot.photoIndex);
     overlays.push({
-      input: await renderSlot(photo, slot),
+      input: await processSlot(slot),
       left: slot.x,
       top: slot.y,
     });
@@ -136,38 +152,4 @@ export async function composeSession(input: ComposeInput): Promise<ComposeOutput
   return { buffer: composed, width: layout.canvas.width, height: layout.canvas.height };
 }
 
-/** FR-05: data-driven filter interpretation. */
-async function applyFilter(photo: Buffer, params: FilterParams): Promise<Buffer> {
-  let pipeline = sharp(photo, { failOn: "none" }).rotate();
 
-  if (params.grayscale) {
-    pipeline = pipeline.grayscale();
-  }
-  pipeline = pipeline.modulate({
-    brightness: params.brightness,
-    ...(params.grayscale ? {} : { saturation: params.saturation }),
-    hue: params.hue,
-  });
-  if (params.gamma) {
-    pipeline = pipeline.gamma(params.gamma);
-  }
-  if (params.tint && !params.grayscale) {
-    pipeline = pipeline.tint(params.tint);
-  }
-  return pipeline.toBuffer();
-}
-
-/** Cover-crop a photo into a slot, with optional rounded corners. */
-async function renderSlot(photo: Buffer, slot: LayoutSlot): Promise<Buffer> {
-  let pipeline = sharp(photo).resize(slot.w, slot.h, { fit: "cover", position: "attention" });
-
-  if (slot.radius > 0) {
-    const mask = Buffer.from(
-      `<svg width="${slot.w}" height="${slot.h}"><rect x="0" y="0" width="${slot.w}" height="${slot.h}" rx="${slot.radius}" ry="${slot.radius}" fill="#fff"/></svg>`,
-    );
-    pipeline = pipeline.composite([{ input: mask, blend: "dest-in" }]).png();
-  } else {
-    pipeline = pipeline.jpeg({ quality: 95 });
-  }
-  return pipeline.toBuffer();
-}
