@@ -7,13 +7,14 @@ import {
   Permission,
   createFilterSchema,
   createLayoutSchema,
+  createStickerSchema,
   updateBorderSchema,
   updateLayoutSchema,
   uuidSchema,
 } from "@lumora/contracts";
 import { getStorage, storageKeys } from "@lumora/core";
 import { inspectImage } from "@lumora/image/server";
-import { auditRepo, borderRepo, filterRepo, layoutRepo } from "@lumora/db";
+import { auditRepo, borderRepo, filterRepo, layoutRepo, stickerRepo } from "@lumora/db";
 import { mediaService } from "../../services/media.service";
 import { notFound, ok, rateLimitBy, requireAuth, requirePermission, forbidden } from "../middleware";
 import type { ApiEnv } from "../context";
@@ -228,4 +229,93 @@ export const templateRoute = new Hono<ApiEnv>()
       params: input.params,
     });
     return ok(c, { filter }, 201);
+  })
+
+  // ── Stickers ───────────────────────────────────────────────────────────
+  .get("/stickers", requirePermission(Permission.TEMPLATE_READ), async (c) => {
+    const user = c.get("user");
+    const stickers = await stickerRepo.listVisible(user.organizationId);
+    const urls = await Promise.all(stickers.map((s) => mediaService.stickerUrl(s)));
+    return ok(c, {
+      stickers: stickers.map((s, i) => ({
+        id: s.id,
+        name: s.name,
+        storageKey: s.storageKey,
+        imageUrl: urls[i],
+        anchorPoint: s.anchorPoint,
+        defaultScale: s.defaultScale,
+        defaultOffsetX: s.defaultOffsetX,
+        defaultOffsetY: s.defaultOffsetY,
+        isActive: s.isActive,
+      })),
+    });
+  })
+
+  .post("/stickers", requirePermission(Permission.TEMPLATE_MANAGE), rateLimitBy("sticker-upload", 30, 60), async (c) => {
+    const user = c.get("user");
+    const body = await c.req.parseBody();
+    const file = body["file"];
+    const name = typeof body["name"] === "string" ? body["name"].trim() : "";
+    const anchorPoint = typeof body["anchorPoint"] === "string" ? body["anchorPoint"] : "FOREHEAD";
+    const defaultScale = Number(body["defaultScale"] ?? 1);
+    const defaultOffsetX = Number(body["defaultOffsetX"] ?? 0);
+    const defaultOffsetY = Number(body["defaultOffsetY"] ?? 0);
+
+    if (!(file instanceof File)) throw new ApiError(ApiErrorCode.VALIDATION, "Sticker PNG file is required", 422);
+    if (name.length < 1) throw new ApiError(ApiErrorCode.VALIDATION, "Name is required", 422);
+
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const info = await inspectImage(buffer).catch(() => {
+      throw new ApiError(ApiErrorCode.VALIDATION, "File is not a valid image", 422);
+    });
+    if (info.format !== "png") {
+      throw new ApiError(ApiErrorCode.VALIDATION, "Stickers must be PNG with transparency", 422);
+    }
+
+    const sticker = await stickerRepo.create({
+      organizationId: user.organizationId,
+      name,
+      storageKey: "pending",
+      anchorPoint,
+      defaultScale,
+      defaultOffsetX,
+      defaultOffsetY,
+      sizeBytes: buffer.length,
+      createdById: user.id,
+    });
+    const key = storageKeys.sticker(user.organizationId, sticker.id);
+    await getStorage().putObject({ key, body: buffer, contentType: "image/png" });
+    const saved = await stickerRepo.update(sticker.id, { storageKey: key });
+
+    await auditRepo.write({
+      organizationId: user.organizationId,
+      actorType: "USER",
+      actorId: user.id,
+      actorName: user.name,
+      action: "UPLOAD",
+      entityType: "sticker",
+      entityId: sticker.id,
+      metadata: { name },
+      ip: c.get("ip"),
+    });
+    return ok(c, { sticker: saved }, 201);
+  })
+
+  .delete("/stickers/:id", requirePermission(Permission.TEMPLATE_MANAGE), async (c) => {
+    const user = c.get("user");
+    const sticker = await stickerRepo.findById(c.req.param("id"));
+    if (!sticker) throw notFound();
+    if (sticker.organizationId !== user.organizationId) throw forbidden("Global templates are read-only");
+    await stickerRepo.delete(sticker.id);
+    await auditRepo.write({
+      organizationId: user.organizationId,
+      actorType: "USER",
+      actorId: user.id,
+      actorName: user.name,
+      action: "DELETE",
+      entityType: "sticker",
+      entityId: sticker.id,
+      ip: c.get("ip"),
+    });
+    return ok(c, { done: true });
   });

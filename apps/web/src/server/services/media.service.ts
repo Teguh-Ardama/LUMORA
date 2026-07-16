@@ -1,5 +1,5 @@
 import { getStorage } from "@lumora/core";
-import type { Border, Photo, Session } from "@lumora/db";
+import type { Border, Photo, Session, Sticker } from "@lumora/db";
 
 const SIGNED_URL_TTL = 3600; // 1 hour — plenty for dashboard/operator screens
 
@@ -16,6 +16,10 @@ export const mediaService = {
 
   borderUrl(border: Pick<Border, "storageKey">): Promise<string> {
     return getStorage().getSignedUrl(border.storageKey, SIGNED_URL_TTL);
+  },
+
+  stickerUrl(sticker: Pick<Sticker, "storageKey">): Promise<string> {
+    return getStorage().getSignedUrl(sticker.storageKey, SIGNED_URL_TTL);
   },
 
   /** Longer-lived URL used inside guest gallery pages / emails. */

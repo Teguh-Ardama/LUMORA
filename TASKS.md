@@ -40,11 +40,10 @@ Referensi dokumen: `CLAUDE.md` (overview), `docs/PRD-v4.md` (requirement + accep
 - [x] Rate limit implement — `rateLimitBy("auth-login", 10, 60)` di middleware sudah aktif
 
 ## Phase 3 — Admin Dashboard: Library Management (FR-12)
-- [x] Halaman `/dashboard/library` dengan 3 tab: Border, Filter, Sticker **(ditambah temen lu)**
+- [x] Halaman `/dashboard/library` dengan 3 tab: Border, Filter, Sticker — **real data dari API**
 - [x] Upload border: validasi mime-type asli (bukan cuma extension), PNG/WebP only
-- [ ] Upload sticker: form pilih `anchor_point` + kalibrasi `default_scale`/`offset` dengan preview **(StickerEditor component sudah ada)**
-- [ ] UI slider filter (brightness/contrast/saturation/hue/vignette/grain) — **komponen ini akan
-      dipakai ulang di Operator Custom Filter (Phase 6)**, bangun sebagai shared component sejak awal
+- [x] Upload sticker: form pilih `anchor_point` + kalibrasi `default_scale`/`offset` dengan preview
+- [x] UI slider filter (brightness/contrast/saturation/hue/grain/grayscale) — **shared SliderField component**
 - [x] Toggle aktif/nonaktif untuk border/filter/layout (via PATCH API)
 - [ ] Test: aset nonaktif tidak muncul di operator console tapi sesi lama yang memakainya tetap utuh
 
@@ -54,7 +53,7 @@ Referensi dokumen: `CLAUDE.md` (overview), `docs/PRD-v4.md` (requirement + accep
 - [x] Pastikan dropdown device TIDAK memfilter berdasarkan nama — **list device dari enumerateDevices**
 - [ ] Tulis panduan setup singkat non-teknis untuk operator *(nanti phase dokumentasi)*
 - [x] Tombol capture → compress → upload — **WebcamPanel komponen lengkap**
-- [x] Client-side compress (target ~1.5MB, lihat FR-03) — **via `compressBitmapToTarget`**
+- [x] Client-side compress (target ~3.5MB, FR-03 ditingkatkan) — **via `compressBitmapToTarget`**
 - [x] `POST /api/sessions`, `POST /api/sessions/:id/photos` (lihat `docs/API.md`)
 - [ ] Error state jelas kalau permission kamera ditolak (bukan silent fail)
 
@@ -88,8 +87,8 @@ Referensi dokumen: `CLAUDE.md` (overview), `docs/PRD-v4.md` (requirement + accep
 ## Phase 8 — Delivery & Result Page (FR-06)
 - [x] Generate QR dari `result_slug` (`qrcode` lib), tampil di layar operator
 - [x] Form input email di layar operator → `POST /api/sessions/:id/deliver` **(UI siap, API siap)**
-- [ ] Worker job `send-delivery`: kirim email via Nodemailer berisi link result page **(worker siap, butuh running worker)**
-- [ ] Halaman publik `/r/[resultSlug]`: view, download, share
+- [x] Worker job `send-delivery`: kirim email via Nodemailer **(worker sudah implement)**
+- [x] Halaman publik `/g/[token]`: view, download, share **(full implement)**
 - [x] Tombol "Mulai Sesi Baru": reset QR di layar, **tidak** menghapus data sesi sebelumnya
 - [x] (WhatsApp: skip, tidak masuk MVP — keputusan final)
 - [ ] Test E2E: klik "Sesi Baru" → QR berubah, slug lama tetap bisa diakses
