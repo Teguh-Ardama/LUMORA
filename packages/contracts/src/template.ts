@@ -62,3 +62,12 @@ export const createFilterSchema = z.object({
   params: filterParamsSchema,
 });
 export type CreateFilterInput = z.infer<typeof createFilterSchema>;
+
+export const createStickerSchema = z.object({
+  name: z.string().trim().min(1).max(255),
+  anchorPoint: z.enum(["FOREHEAD", "LEFT_EYE", "RIGHT_EYE", "NOSE", "MOUTH", "CHIN", "LEFT_EAR", "RIGHT_EAR", "FULL_FACE"]),
+  defaultScale: z.coerce.number().min(0.1).max(5).default(1.0),
+  defaultOffsetX: z.coerce.number().default(0),
+  defaultOffsetY: z.coerce.number().default(0),
+});
+export type CreateStickerInput = z.infer<typeof createStickerSchema>;

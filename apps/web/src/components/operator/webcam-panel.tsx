@@ -17,6 +17,7 @@ import {
 } from "@lumora/ui";
 import { FaceArEngine, type ArEngineStatus } from "@/lib/ar/engine";
 import { AR_STYLES } from "@/lib/ar/styles";
+import { apiClient } from "@/lib/api";
 
 export interface WebcamPanelProps {
   countdownSeconds: number;
@@ -58,6 +59,13 @@ export function WebcamPanel({
   const [flash, setFlash] = React.useState(false);
   const [arStyleId, setArStyleId] = React.useState<string | null>(null);
   const [arStatus, setArStatus] = React.useState<ArEngineStatus>("idle");
+  const [libraryStickers, setLibraryStickers] = React.useState<Array<{id: string; name: string; imageUrl: string; anchorPoint: string; defaultScale: number; defaultOffsetX: number; defaultOffsetY: number}>>([]);
+
+  React.useEffect(() => {
+    apiClient.get<{stickers: typeof libraryStickers}>("/api/templates/stickers").then((res) => {
+      setLibraryStickers(res.stickers);
+    }).catch(() => {});
+  }, []);
 
   const startStream = React.useCallback(async (id?: string) => {
     streamRef.current?.getTracks().forEach((t) => t.stop());
@@ -107,8 +115,17 @@ export function WebcamPanel({
       if (videoRef.current && overlayRef.current) {
         await engineRef.current.init(videoRef.current, overlayRef.current);
       }
-      engineRef.current.setStyle(styleId);
-      engineRef.current.start();
+      // Check if it's a library sticker (id starts with "stk-")
+      if (styleId.startsWith("stk-")) {
+        const sticker = libraryStickers.find((s) => s.id === styleId.replace("stk-", ""));
+        if (sticker) {
+          await engineRef.current.setSticker(sticker.imageUrl, sticker.anchorPoint, sticker.defaultScale, sticker.defaultOffsetX, sticker.defaultOffsetY);
+          engineRef.current.start();
+        }
+      } else {
+        engineRef.current.setStyle(styleId);
+        engineRef.current.start();
+      }
     } catch {
       setArStyleId(null);
       toast.error("AR filter could not load — check the internet connection and retry");
@@ -155,13 +172,14 @@ export function WebcamPanel({
           playsInline
           muted
           className="h-full w-full object-contain"
-          style={{ filter: previewCssFilter }}
+          style={{ filter: previewCssFilter, transform: "scaleX(-1)" }}
         />
         {/* AR overlay — native video resolution, object-contain keeps it
             pixel-aligned with the letterboxed video underneath. */}
         <canvas
           ref={overlayRef}
           className="pointer-events-none absolute inset-0 h-full w-full object-contain"
+          style={{ transform: "scaleX(-1)" }}
         />
         {/* Border look-preview (hanya saat capture sudah selesai, bukan pas live preview) */}
         {framesCaptured > 0 && borderOverlayUrl ? (
@@ -224,6 +242,19 @@ export function WebcamPanel({
             )}
           >
             {style.name}
+          </button>
+        ))}
+        {libraryStickers.map((s) => (
+          <button
+            key={s.id}
+            type="button"
+            onClick={() => void selectArStyle(`stk-${s.id}`)}
+            className={cn(
+              "shrink-0 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+              arStyleId === `stk-${s.id}` ? "border-primary bg-accent" : "text-muted-foreground hover:bg-accent/50",
+            )}
+          >
+            {s.name}
           </button>
         ))}
       </div>
