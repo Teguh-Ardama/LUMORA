@@ -241,7 +241,7 @@ export const templateRoute = new Hono<ApiEnv>()
         id: s.id,
         name: s.name,
         storageKey: s.storageKey,
-        imageUrl: urls[i],
+        url: urls[i],
         anchorPoint: s.anchorPoint,
         defaultScale: s.defaultScale,
         defaultOffsetX: s.defaultOffsetX,

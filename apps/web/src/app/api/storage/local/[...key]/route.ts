@@ -34,15 +34,33 @@ export async function GET(
     }
 
     const body = await getStorage().getObject(key);
-    const ext = key.split(".").pop()?.toLowerCase() ?? "";
+    const hasExtension = key.includes(".");
+    const ext = hasExtension ? key.split(".").pop()?.toLowerCase() ?? "" : "";
+    let mimeType = MIME_BY_EXT[ext];
+    if (!mimeType) {
+      if (key.startsWith("stickers/")) mimeType = "image/png";
+      else mimeType = "application/octet-stream";
+    }
+
     return new Response(new Uint8Array(body), {
       headers: {
-        "Content-Type": MIME_BY_EXT[ext] ?? "application/octet-stream",
+        "Content-Type": mimeType,
         "Cache-Control": "private, max-age=300",
         "Content-Length": String(body.length),
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, OPTIONS",
       },
     });
   } catch (err: any) {
-    return new Response(err.message || "Unknown error", { status: 500 });
+    return new Response(err.message || "Unknown error", { status: 500, headers: { "Access-Control-Allow-Origin": "*" } });
   }
+}
+
+export function OPTIONS() {
+  return new Response(null, {
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, OPTIONS",
+    },
+  });
 }

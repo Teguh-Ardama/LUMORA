@@ -3,9 +3,8 @@
 import { FaceLandmarker, FilesetResolver, type FaceLandmarkerResult } from "@mediapipe/tasks-vision";
 import { getArStyle, type ArStyle } from "./styles";
 
-const WASM_BASE = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/wasm";
-const MODEL_URL =
-  "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task";
+const WASM_BASE = "/ar";
+const MODEL_URL = "/ar/face_landmarker.task";
 
 // Canonical FaceMesh landmark indices (468 points). Right = subject's right (image left).
 const RIGHT_EYE_OUTER = 33;
@@ -112,7 +111,7 @@ export class FaceArEngine {
       this.landmarker = await FaceLandmarker.createFromOptions(fileset, {
         baseOptions: { modelAssetPath: MODEL_URL, delegate: "GPU" },
         runningMode: "VIDEO",
-        numFaces: 4,
+        numFaces: 2,
         outputFaceBlendshapes: false,
         outputFacialTransformationMatrixes: false,
       });

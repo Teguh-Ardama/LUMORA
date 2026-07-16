@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { Rnd } from "react-rnd";
-import { Trash2 } from "lucide-react";
+import { Trash2, Sparkles } from "lucide-react";
 import { Button } from "@lumora/ui";
 import type { SessionPayload } from "@/lib/hooks/use-operator";
 import type { Sticker } from "@lumora/contracts";
@@ -23,9 +23,10 @@ export interface StickerPadProps {
   stickers: Sticker[];
   onCompose: (appliedStickers: AppliedSticker[]) => void;
   isComposing: boolean;
+  previewCssFilter?: string;
 }
 
-export function StickerPad({ session, stickers, onCompose, isComposing }: StickerPadProps) {
+export function StickerPad({ session, stickers, onCompose, isComposing, previewCssFilter = "none" }: StickerPadProps) {
   const [applied, setApplied] = React.useState<AppliedSticker[]>([]);
   const wrapperRef = React.useRef<HTMLDivElement>(null);
   const [scale, setScale] = React.useState(1);
@@ -75,7 +76,7 @@ export function StickerPad({ session, stickers, onCompose, isComposing }: Sticke
   };
 
   return (
-    <div className="flex flex-col md:flex-row gap-4 h-[calc(100vh-12rem)] min-h-[600px] bg-zinc-950 p-4 rounded-xl border border-zinc-800">
+    <div className="flex flex-col md:flex-row gap-4 h-full min-h-0 bg-zinc-950 p-4 rounded-xl border border-zinc-800">
       {/* Canvas Area */}
       <div 
         ref={wrapperRef}
@@ -91,21 +92,21 @@ export function StickerPad({ session, stickers, onCompose, isComposing }: Sticke
         >
           {/* Base Layout Rendering */}
           <div
-            className="absolute inset-0 origin-top-left pointer-events-none"
-            style={{ transform: `scale(${scale})` }}
+            className="absolute top-0 left-0 origin-top-left pointer-events-none"
+            style={{ width: canvasW, height: canvasH, transform: `scale(${scale})` }}
           >
             {session.layout.config.slots.map((slot, index) => {
               const photo = session.photos.find((p) => p.sequence === slot.photoIndex);
               return (
                 <div
                   key={index}
-                  className="absolute bg-zinc-800"
+                  className="absolute bg-zinc-800 overflow-hidden"
                   style={{
                     left: slot.x,
                     top: slot.y,
-                    width: slot.width,
-                    height: slot.height,
-                    borderRadius: slot.borderRadius,
+                    width: slot.w,
+                    height: slot.h,
+                    borderRadius: slot.radius,
                   }}
                 >
                   {photo && (
@@ -114,8 +115,10 @@ export function StickerPad({ session, stickers, onCompose, isComposing }: Sticke
                       src={photo.url}
                       alt={`Slot ${slot.photoIndex}`}
                       className="h-full w-full object-cover"
+                      style={{ filter: previewCssFilter }}
                     />
                   )}
+
                 </div>
               );
             })}
@@ -156,30 +159,32 @@ export function StickerPad({ session, stickers, onCompose, isComposing }: Sticke
       </div>
 
       {/* Sidebar Tool tray */}
-      <div className="w-full md:w-80 flex flex-col bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden">
-        <div className="p-4 border-b border-zinc-800 flex justify-between items-center bg-zinc-950">
-          <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400">Stickers</span>
+      <div className="w-full md:w-[340px] flex flex-col bg-background/80 backdrop-blur-xl border rounded-2xl overflow-hidden shadow-2xl">
+        <div className="p-5 border-b bg-muted/30">
+          <h3 className="font-semibold text-sm tracking-wide">Decorate</h3>
+          <p className="text-xs text-muted-foreground mt-1">Tap stickers to add them to your photo</p>
         </div>
         
-        <div className="p-4 overflow-y-auto flex-1 grid grid-cols-2 gap-4 auto-rows-max">
+        <div className="p-4 overflow-y-auto flex-1 grid grid-cols-2 gap-3 auto-rows-max">
           {stickers.map((st) => (
             <button
               key={st.id}
               onClick={() => addSticker(st)}
-              className="rounded-lg border border-zinc-800 bg-zinc-950/50 p-4 hover:bg-zinc-800 hover:border-zinc-700 transition-all flex items-center justify-center aspect-square shadow-sm"
+              className="group relative rounded-xl border bg-card p-4 transition-all hover:border-primary/50 hover:shadow-md flex items-center justify-center aspect-square"
             >
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-xl" />
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={st.url} alt={st.name} className="max-h-full max-w-full object-contain" style={{ filter: "drop-shadow(0px 2px 4px rgba(0,0,0,0.5))" }} />
+              <img src={st.url} alt={st.name} className="relative z-10 max-h-full max-w-full object-contain transition-transform group-hover:scale-110" style={{ filter: "drop-shadow(0px 4px 6px rgba(0,0,0,0.3))" }} />
             </button>
           ))}
           {stickers.length === 0 ? (
-            <span className="text-sm text-zinc-500 col-span-2 text-center py-8">No stickers available</span>
+            <span className="text-sm text-muted-foreground col-span-2 text-center py-8">No stickers available</span>
           ) : null}
         </div>
         
-        <div className="p-4 border-t border-zinc-800 bg-zinc-950">
-          <Button size="lg" className="w-full text-base h-12" onClick={() => onCompose(applied)} loading={isComposing}>
-            Next &rarr;
+        <div className="p-5 border-t bg-muted/30">
+          <Button size="lg" className="w-full rounded-full h-12 shadow-lg" onClick={() => onCompose(applied)} loading={isComposing}>
+            <Sparkles className="mr-2 h-4 w-4" /> Next Step
           </Button>
         </div>
       </div>

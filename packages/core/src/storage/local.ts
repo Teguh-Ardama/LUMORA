@@ -11,9 +11,11 @@ import type { PutObjectInput, StorageService } from "./types";
  * Anchor it at the workspace root (nearest ancestor with
  * pnpm-workspace.yaml); absolute paths are used as-is.
  */
+import { fileURLToPath } from "node:url";
+
 function resolveStorageRoot(configured: string): string {
   if (path.isAbsolute(configured)) return configured;
-  let dir = process.cwd();
+  let dir = path.dirname(fileURLToPath(import.meta.url));
   for (let i = 0; i < 10; i++) {
     if (existsSync(path.join(dir, "pnpm-workspace.yaml"))) {
       return path.resolve(dir, configured);
@@ -22,7 +24,7 @@ function resolveStorageRoot(configured: string): string {
     if (parent === dir) break;
     dir = parent;
   }
-  return path.resolve(configured);
+  return path.resolve(process.cwd(), configured);
 }
 
 /**

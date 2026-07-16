@@ -15,6 +15,12 @@ export interface ComposeInput {
   /** Transparent PNG overlaid on top of the composition. */
   borderPng?: Buffer | null;
   filterParams: FilterParams;
+  sessionStickers?: Array<{
+    png: Buffer;
+    offsetX: number;
+    offsetY: number;
+    scale: number;
+  }>;
   stickers?: Array<{
     buffer: Buffer;
     x: number;
@@ -78,8 +84,8 @@ export async function composeSession(input: ComposeInput): Promise<ComposeOutput
   }
 
   // FR-10: overlay face stickers (if any)
-  if (input.stickers?.length) {
-    for (const st of input.stickers) {
+  if (input.sessionStickers?.length) {
+    for (const st of input.sessionStickers) {
       const sticker = await sharp(st.png)
         .resize(Math.round(200 * st.scale), Math.round(200 * st.scale), { fit: "inside" })
         .png()
@@ -137,7 +143,7 @@ async function applyFilter(photo: Buffer, params: FilterParams): Promise<Buffer>
   }
   pipeline = pipeline.modulate({
     brightness: params.brightness,
-    saturation: params.grayscale ? 1 : params.saturation,
+    ...(params.grayscale ? {} : { saturation: params.saturation }),
     hue: params.hue,
   });
   if (params.gamma) {

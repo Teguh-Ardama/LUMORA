@@ -88,6 +88,7 @@ export function startComposeWorker(): Worker<ComposeJobData> {
           layoutConfig: session.layout.config,
           borderPng,
           filterParams,
+          sessionStickers: stickerBuffers,
           stickers: stickerOverlays.length > 0 ? stickerOverlays : undefined,
         });
 

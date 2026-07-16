@@ -274,9 +274,9 @@ export default function OperatorWorkspacePage() {
         </div>
       </header>
 
-      <div className="grid flex-1 gap-4 p-4 lg:grid-cols-[1fr_360px]">
+      <div className="grid flex-1 min-h-0 gap-4 p-4 lg:grid-cols-[1fr_360px]">
         {/* ── Capture area ─────────────────────────────────────────────── */}
-        <div className="min-h-[420px]">
+        <div className="flex flex-col min-h-0">
           {!session || session.status === "CLOSED" ? (
             <Card className="flex h-full flex-col justify-center">
               <CardContent className="mx-auto w-full max-w-md space-y-5 p-8">
@@ -392,6 +392,13 @@ export default function OperatorWorkspacePage() {
             />
           ) : session.status === "CAPTURING" ? (
             <BridgeWaitPanel framesCaptured={framesCaptured} framesTotal={framesTotal} bridgeOnline={bridgeOnline} />
+          ) : session.status === "COMPOSING" ? (
+            <div className="flex h-full flex-col items-center justify-center p-8">
+              <div className="flex flex-col items-center gap-4 text-center">
+                <Spinner className="h-8 w-8 text-primary" />
+                <p className="text-lg font-medium text-muted-foreground">Composing your masterpiece...</p>
+              </div>
+            </div>
           ) : (
             <ComposedPreview session={session} />
           )}

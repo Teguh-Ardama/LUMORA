@@ -59,7 +59,7 @@ export function WebcamPanel({
   const [flash, setFlash] = React.useState(false);
   const [arStyleId, setArStyleId] = React.useState<string | null>(null);
   const [arStatus, setArStatus] = React.useState<ArEngineStatus>("idle");
-  const [libraryStickers, setLibraryStickers] = React.useState<Array<{id: string; name: string; imageUrl: string; anchorPoint: string; defaultScale: number; defaultOffsetX: number; defaultOffsetY: number}>>([]);
+  const [libraryStickers, setLibraryStickers] = React.useState<Array<{id: string; name: string; url: string; anchorPoint: string; defaultScale: number; defaultOffsetX: number; defaultOffsetY: number}>>([]);
 
   React.useEffect(() => {
     apiClient.get<{stickers: typeof libraryStickers}>("/api/templates/stickers").then((res) => {
@@ -76,8 +76,8 @@ export function WebcamPanel({
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           ...(id ? { deviceId: { exact: id } } : {}),
-          width: { ideal: 1920 },
-          height: { ideal: 1440 },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
         },
         audio: false,
       });
@@ -119,7 +119,7 @@ export function WebcamPanel({
       if (styleId.startsWith("stk-")) {
         const sticker = libraryStickers.find((s) => s.id === styleId.replace("stk-", ""));
         if (sticker) {
-          await engineRef.current.setSticker(sticker.imageUrl, sticker.anchorPoint, sticker.defaultScale, sticker.defaultOffsetX, sticker.defaultOffsetY);
+          await engineRef.current.setSticker(sticker.url, sticker.anchorPoint, sticker.defaultScale, sticker.defaultOffsetX, sticker.defaultOffsetY);
           engineRef.current.start();
         }
       } else {
@@ -164,7 +164,7 @@ export function WebcamPanel({
   };
 
   return (
-    <div className="flex h-full flex-col gap-3">
+    <div className="flex flex-1 min-h-0 flex-col gap-3">
       <div className="relative flex-1 overflow-hidden rounded-lg border bg-black">
         {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
         <video
@@ -217,16 +217,16 @@ export function WebcamPanel({
       </div>
 
       {/* AR accessory picker */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-0.5">
-        <span className="flex shrink-0 items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          <Sparkles className="h-3.5 w-3.5" /> AR
+      <div className="flex items-center gap-2 overflow-x-auto pb-2 pt-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+        <span className="sticky left-0 z-10 flex shrink-0 items-center justify-center rounded-full bg-background/80 pr-2 text-xs font-medium uppercase tracking-wide text-muted-foreground backdrop-blur-sm">
+          <Sparkles className="mr-1.5 h-3.5 w-3.5" /> AR
         </span>
         <button
           type="button"
           onClick={() => void selectArStyle(null)}
           className={cn(
-            "shrink-0 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
-            arStyleId === null ? "border-primary bg-accent" : "text-muted-foreground hover:bg-accent/50",
+            "shrink-0 rounded-full border px-4 py-1.5 text-xs font-medium transition-all",
+            arStyleId === null ? "border-primary bg-primary text-primary-foreground shadow-sm" : "bg-background text-muted-foreground hover:bg-accent/50",
           )}
         >
           None
@@ -237,8 +237,8 @@ export function WebcamPanel({
             type="button"
             onClick={() => void selectArStyle(style.id)}
             className={cn(
-              "shrink-0 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
-              arStyleId === style.id ? "border-primary bg-accent" : "text-muted-foreground hover:bg-accent/50",
+              "shrink-0 rounded-full border px-4 py-1.5 text-xs font-medium transition-all",
+              arStyleId === style.id ? "border-primary bg-primary text-primary-foreground shadow-sm" : "bg-background text-muted-foreground hover:bg-accent/50",
             )}
           >
             {style.name}
@@ -250,8 +250,8 @@ export function WebcamPanel({
             type="button"
             onClick={() => void selectArStyle(`stk-${s.id}`)}
             className={cn(
-              "shrink-0 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
-              arStyleId === `stk-${s.id}` ? "border-primary bg-accent" : "text-muted-foreground hover:bg-accent/50",
+              "shrink-0 rounded-full border px-4 py-1.5 text-xs font-medium transition-all",
+              arStyleId === `stk-${s.id}` ? "border-primary bg-primary text-primary-foreground shadow-sm" : "bg-background text-muted-foreground hover:bg-accent/50",
             )}
           >
             {s.name}
@@ -259,34 +259,68 @@ export function WebcamPanel({
         ))}
       </div>
 
-      <div className="flex items-center gap-2">
-        <Select
-          value={deviceId}
-          onValueChange={(v) => {
-            setDeviceId(v);
-            void startStream(v);
-          }}
-        >
-          <SelectTrigger className="w-56">
-            <SelectValue placeholder="Default camera" />
-          </SelectTrigger>
-          <SelectContent>
-            {devices.map((d, i) => (
-              <SelectItem key={d.deviceId || i} value={d.deviceId}>
-                {d.label || `Camera ${i + 1}`}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Button
-          className={cn("flex-1", framesCaptured >= framesTotal && "opacity-60")}
-          size="lg"
-          onClick={capture}
-          disabled={disabled || Boolean(cameraError) || framesCaptured >= framesTotal}
-          loading={uploading || countdown !== null}
-        >
-          <Camera /> {countdown !== null ? "Get ready…" : uploading ? "Uploading…" : "Capture frame"}
-        </Button>
+      <div className="mt-2 flex items-center justify-between">
+        <div className="flex w-1/3 justify-start">
+          <Select
+            value={deviceId}
+            onValueChange={(v) => {
+              setDeviceId(v);
+              void startStream(v);
+            }}
+          >
+            <SelectTrigger className="w-[140px] border-none bg-accent/50 text-xs hover:bg-accent focus:ring-0">
+              <SelectValue placeholder="Camera" />
+            </SelectTrigger>
+            <SelectContent>
+              {devices.map((d, i) => (
+                <SelectItem key={d.deviceId || i} value={d.deviceId} className="text-xs">
+                  {d.label || `Camera ${i + 1}`}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="flex w-1/3 justify-center">
+          <button
+            type="button"
+            className={cn(
+              "relative flex h-16 w-16 items-center justify-center rounded-full border-[3px] transition-transform active:scale-95 disabled:opacity-50 disabled:active:scale-100",
+              countdown !== null || uploading ? "border-muted" : "border-primary/30 hover:border-primary/50",
+              framesCaptured >= framesTotal && "opacity-60"
+            )}
+            onClick={capture}
+            disabled={disabled || Boolean(cameraError) || framesCaptured >= framesTotal}
+          >
+            <div
+              className={cn(
+                "flex h-12 w-12 items-center justify-center rounded-full transition-colors",
+                countdown !== null || uploading
+                  ? "bg-muted"
+                  : "bg-primary hover:bg-primary/90"
+              )}
+            >
+              {countdown !== null ? (
+                <span className="text-lg font-bold text-foreground">{countdown}</span>
+              ) : uploading ? (
+                <Spinner className="h-5 w-5 text-foreground" />
+              ) : (
+                <Camera className="h-5 w-5 text-primary-foreground" />
+              )}
+            </div>
+          </button>
+        </div>
+
+        <div className="flex w-1/3 justify-end">
+          <div className="text-right">
+            <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              {framesCaptured >= framesTotal ? "Done" : "Capture"}
+            </div>
+            <div className="text-sm font-medium">
+              {Math.min(framesCaptured + 1, framesTotal)} / {framesTotal}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
