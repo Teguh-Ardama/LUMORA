@@ -33,7 +33,7 @@ const GLOBAL_STICKERS: StickerSeed[] = [
   {
     name: "Kacamata Bulat",
     anchorPoint: "NOSE",
-    defaultScale: 1.0,
+    defaultScale: 0.55,
     defaultOffsetX: 0,
     defaultOffsetY: 0,
     svg: `<svg width="240" height="100" xmlns="http://www.w3.org/2000/svg">
