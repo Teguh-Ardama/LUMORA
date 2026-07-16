@@ -25,10 +25,9 @@ export const galleryRoute = new Hono<ApiEnv>()
     const key = c.req.query("key");
     if (!key) return c.notFound();
     const safeKey = key.replace(/\.\./g, "");
-    const filePath = path.resolve(getEnv().LOCAL_STORAGE_DIR, safeKey);
     try {
-      const buffer = await fs.readFile(filePath);
-      const ext = path.extname(filePath).toLowerCase();
+      const buffer = await getStorage().getObject(safeKey);
+      const ext = path.extname(safeKey).toLowerCase();
       const mime = ext === ".png" ? "image/png" : ext === ".jpg" || ext === ".jpeg" ? "image/jpeg" : "application/octet-stream";
       return new Response(buffer, { headers: { "Content-Type": mime, "Cache-Control": "public, max-age=86400" } });
     } catch {

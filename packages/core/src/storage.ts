@@ -3,8 +3,24 @@ import * as path from "node:path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { getEnv } from "./env";
 import { createLogger } from "./logger";
+import { fileURLToPath } from "node:url";
+import { existsSync } from "node:fs";
 
 const log = createLogger("storage");
+
+function resolveStorageRoot(configured: string): string {
+  if (path.isAbsolute(configured)) return configured;
+  let dir = path.dirname(fileURLToPath(import.meta.url));
+  for (let i = 0; i < 10; i++) {
+    if (existsSync(path.join(dir, "pnpm-workspace.yaml"))) {
+      return path.resolve(dir, configured);
+    }
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return path.resolve(process.cwd(), configured);
+}
 
 export interface StorageDriver {
   putObject(args: { key: string; body: Buffer; contentType?: string }): Promise<void>;
@@ -17,7 +33,7 @@ class LocalStorageDriver implements StorageDriver {
   private baseDir: string;
 
   constructor() {
-    this.baseDir = path.resolve(getEnv().LOCAL_STORAGE_DIR);
+    this.baseDir = resolveStorageRoot(getEnv().LOCAL_STORAGE_DIR);
   }
 
   private getPath(key: string): string {
