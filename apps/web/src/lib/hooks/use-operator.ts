@@ -111,9 +111,10 @@ export function useUploadPhoto() {
 export function useCompose(eventId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: { sessionId: string; appliedStickers?: Array<{ id: string; x: number; y: number; width: number; height: number; rotation: number }> }) =>
+    mutationFn: (input: { sessionId: string; appliedStickers?: Array<{ id: string; x: number; y: number; width: number; height: number; rotation: number }>; photoFilters?: Array<{ photoId: string, filterId: string }> }) =>
       apiClient.post<{ session: SessionPayload }>(`/api/sessions/${input.sessionId}/compose`, {
         appliedStickers: input.appliedStickers,
+        photoFilters: input.photoFilters,
       }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["operator-context", eventId] }),
   });

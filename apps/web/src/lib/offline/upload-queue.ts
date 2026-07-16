@@ -22,6 +22,7 @@ export interface PendingUpload {
   blob: Blob;
   createdAt: number;
   attempts: number;
+  filterId?: string;
 }
 
 function openDb(): Promise<IDBDatabase> {

@@ -84,6 +84,7 @@ export const sessionRoute = new Hono<ApiEnv>()
         sequence: body["sequence"],
         idempotencyKey: body["idempotencyKey"],
         capturedAt: body["capturedAt"] || undefined,
+        filterId: body["filterId"] || undefined,
       });
       const photo = await sessionService.uploadPhoto(
         user,
@@ -114,12 +115,20 @@ export const sessionRoute = new Hono<ApiEnv>()
             }),
           )
           .optional(),
+        photoFilters: z
+          .array(
+            z.object({
+              photoId: z.string(),
+              filterId: z.string(),
+            })
+          )
+          .optional(),
       }).optional(),
     ),
     async (c) => {
       const user = c.get("user");
       const input = c.req.valid("json") || {};
-      const session = await sessionService.requestCompose(user, c.req.param("id"), input.appliedStickers);
+      const session = await sessionService.requestCompose(user, c.req.param("id"), input.appliedStickers, input.photoFilters);
       return ok(c, { session });
     },
   )

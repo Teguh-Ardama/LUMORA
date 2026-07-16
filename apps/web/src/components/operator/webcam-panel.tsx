@@ -30,6 +30,8 @@ export interface WebcamPanelProps {
   borderOverlayUrl?: string | null;
   /** Called with the compressed frame; resolves when the upload finishes. */
   onFrame: (blob: Blob) => Promise<void>;
+  /** Automatically trigger capture repeatedly until framesTotal is reached. */
+  autoCapture?: boolean;
 }
 
 /**
@@ -45,6 +47,7 @@ export function WebcamPanel({
   previewCssFilter = "none",
   borderOverlayUrl = null,
   onFrame,
+  autoCapture = false,
 }: WebcamPanelProps) {
   const videoRef = React.useRef<HTMLVideoElement>(null);
   const overlayRef = React.useRef<HTMLCanvasElement>(null);
@@ -156,12 +159,18 @@ export function WebcamPanel({
       });
       bitmap.close();
       await onFrame(blob);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Capture failed");
+    } catch (err: any) {
+      toast.error(err.message || "Capture failed");
     } finally {
       setUploading(false);
     }
   };
+
+  React.useEffect(() => {
+    if (autoCapture && !disabled && !cameraError && !uploading && countdown === null && framesCaptured < framesTotal) {
+      void capture();
+    }
+  }, [autoCapture, disabled, cameraError, uploading, countdown, framesCaptured, framesTotal]);
 
   return (
     <div className="flex flex-1 min-h-0 flex-col gap-3">

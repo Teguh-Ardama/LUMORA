@@ -21,15 +21,31 @@ export interface AppliedSticker {
 export interface StickerPadProps {
   session: SessionPayload;
   stickers: Sticker[];
-  onCompose: (appliedStickers: AppliedSticker[]) => void;
+  onCompose: (appliedStickers: AppliedSticker[], photoFilters: Array<{ photoId: string, filterId: string }>) => void;
   isComposing: boolean;
   previewCssFilter?: string;
+  filters?: Array<{ id: string; name: string; params: any }>;
 }
 
-export function StickerPad({ session, stickers, onCompose, isComposing, previewCssFilter = "none" }: StickerPadProps) {
+export interface StickerPadRef {
+  submit: () => void;
+}
+
+export const StickerPad = React.forwardRef<StickerPadRef, StickerPadProps>(
+  ({ session, stickers, onCompose, isComposing, previewCssFilter = "none", filters = [] }, ref) => {
   const [applied, setApplied] = React.useState<AppliedSticker[]>([]);
+  const [photoFilters, setPhotoFilters] = React.useState<Record<string, string>>({});
+  const [selectedPhotoId, setSelectedPhotoId] = React.useState<string | null>(null);
+  
   const wrapperRef = React.useRef<HTMLDivElement>(null);
   const [scale, setScale] = React.useState(1);
+
+  React.useImperativeHandle(ref, () => ({
+    submit: () => {
+      const pfArray = Object.entries(photoFilters).map(([photoId, filterId]) => ({ photoId, filterId }));
+      onCompose(applied, pfArray);
+    }
+  }), [onCompose, applied, photoFilters]);
 
   const canvasW = session.layout.config.canvas.width;
   const canvasH = session.layout.config.canvas.height;
@@ -87,7 +103,7 @@ export function StickerPad({ session, stickers, onCompose, isComposing, previewC
           style={{
             width: canvasW * scale,
             height: canvasH * scale,
-            backgroundColor: session.layout.config.canvas.backgroundColor,
+            background: session.layout.config.canvas.background,
           }}
         >
           {/* Base Layout Rendering */}
@@ -100,25 +116,39 @@ export function StickerPad({ session, stickers, onCompose, isComposing, previewC
               return (
                 <div
                   key={index}
-                  className="absolute bg-zinc-800 overflow-hidden"
+                  className={`absolute bg-zinc-800 overflow-hidden ${photo ? 'cursor-pointer' : ''} ${selectedPhotoId === photo?.id ? 'ring-4 ring-primary z-10' : ''}`}
                   style={{
                     left: slot.x,
                     top: slot.y,
                     width: slot.w,
                     height: slot.h,
                     borderRadius: slot.radius,
+                    pointerEvents: 'auto'
+                  }}
+                  onClick={() => {
+                     if (photo) setSelectedPhotoId(photo.id);
                   }}
                 >
-                  {photo && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={photo.url}
-                      alt={`Slot ${slot.photoIndex}`}
-                      className="h-full w-full object-cover"
-                      style={{ filter: previewCssFilter }}
-                    />
-                  )}
+                  {photo && (() => {
+                    const currentFilterId = photoFilters[photo.id] || (photo as any)?.filterId || session.filter?.id;
+                    const activeFilter = filters?.find(f => f.id === currentFilterId) || session.filter;
+                    // Approximate filter preview: grayscale or sepia based on name
+                    const localPreviewCssFilter = activeFilter?.name?.toLowerCase().includes("b&w") || activeFilter?.name?.toLowerCase().includes("black") 
+                      ? "grayscale(100%)" 
+                      : activeFilter?.name?.toLowerCase().includes("sepia") || activeFilter?.name?.toLowerCase().includes("retro")
+                      ? "sepia(80%)"
+                      : previewCssFilter;
 
+                    return (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={photo.url}
+                        alt={`Slot ${slot.photoIndex}`}
+                        className="h-full w-full object-cover"
+                        style={{ filter: localPreviewCssFilter }}
+                      />
+                    );
+                  })()}
                 </div>
               );
             })}
@@ -145,7 +175,7 @@ export function StickerPad({ session, stickers, onCompose, isComposing, previewC
             >
               <div className="relative h-full w-full border-2 border-transparent group-hover:border-primary/50 group-active:border-primary border-dashed">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={st.url} alt="Sticker" className="h-full w-full object-contain pointer-events-none drop-shadow-md" />
+                <img src={st.url} alt="Sticker" draggable={false} className="h-full w-full object-contain pointer-events-none drop-shadow-md" />
                 <button
                   onClick={() => removeSticker(st.id)}
                   className="absolute -right-3 -top-3 hidden rounded-full bg-destructive p-1.5 text-white shadow-sm group-hover:block z-10"
@@ -158,36 +188,63 @@ export function StickerPad({ session, stickers, onCompose, isComposing, previewC
         </div>
       </div>
 
-      {/* Sidebar Tool tray */}
+      {/* Asset Sidebar (Stickers + Filters) */}
       <div className="w-full md:w-[340px] flex flex-col bg-background/80 backdrop-blur-xl border rounded-2xl overflow-hidden shadow-2xl">
         <div className="p-5 border-b bg-muted/30">
-          <h3 className="font-semibold text-sm tracking-wide">Decorate</h3>
-          <p className="text-xs text-muted-foreground mt-1">Tap stickers to add them to your photo</p>
+          <h3 className="font-semibold text-sm tracking-wide flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-primary" /> Decorate
+          </h3>
+          <p className="text-xs text-muted-foreground mt-1">Tap a photo to add filters, or add stickers</p>
         </div>
         
-        <div className="p-4 overflow-y-auto flex-1 grid grid-cols-2 gap-3 auto-rows-max">
-          {stickers.map((st) => (
-            <button
-              key={st.id}
-              onClick={() => addSticker(st)}
-              className="group relative rounded-xl border bg-card p-4 transition-all hover:border-primary/50 hover:shadow-md flex items-center justify-center aspect-square"
-            >
-              <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-xl" />
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={st.url} alt={st.name} className="relative z-10 max-h-full max-w-full object-contain transition-transform group-hover:scale-110" style={{ filter: "drop-shadow(0px 4px 6px rgba(0,0,0,0.3))" }} />
-            </button>
-          ))}
-          {stickers.length === 0 ? (
-            <span className="text-sm text-muted-foreground col-span-2 text-center py-8">No stickers available</span>
-          ) : null}
+        <div className="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar">
+          {filters && filters.length > 0 && selectedPhotoId && (
+            <div>
+              <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Photo Filter</h4>
+              <div className="grid grid-cols-2 gap-2">
+                {filters.map((f) => {
+                  const isActive = (photoFilters[selectedPhotoId] || (session.photos.find(p => p.id === selectedPhotoId) as any)?.filterId || session.filter?.id) === f.id;
+                  return (
+                    <button
+                      key={f.id}
+                      onClick={() => setPhotoFilters(prev => ({ ...prev, [selectedPhotoId]: f.id }))}
+                      className={`text-xs p-3 rounded-lg border transition-all ${isActive ? 'bg-primary/20 border-primary text-primary font-bold' : 'bg-card hover:bg-muted'}`}
+                    >
+                      {f.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          <div>
+            <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Stickers</h4>
+            <div className="grid grid-cols-2 gap-3 auto-rows-max">
+              {stickers.map((st) => (
+                <button
+                  key={st.id}
+                  onClick={() => addSticker(st)}
+                  className="group relative rounded-xl border bg-card p-4 transition-all hover:border-primary/50 hover:shadow-md flex items-center justify-center aspect-square"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-xl" />
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={st.url} alt={st.name} draggable={false} className="relative z-10 max-h-full max-w-full object-contain transition-transform group-hover:scale-110" style={{ filter: "drop-shadow(0px 4px 6px rgba(0,0,0,0.3))" }} />
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
         
         <div className="p-5 border-t bg-muted/30">
-          <Button size="lg" className="w-full rounded-full h-12 shadow-lg" onClick={() => onCompose(applied)} loading={isComposing}>
+          <Button size="lg" className="w-full rounded-full h-12 shadow-lg" onClick={() => {
+            const pfArray = Object.entries(photoFilters).map(([photoId, filterId]) => ({ photoId, filterId }));
+            onCompose(applied, pfArray);
+          }} loading={isComposing}>
             <Sparkles className="mr-2 h-4 w-4" /> Next Step
           </Button>
         </div>
       </div>
     </div>
   );
-}
+});

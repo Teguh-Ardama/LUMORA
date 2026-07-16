@@ -42,6 +42,20 @@ const GLOBAL_LAYOUTS: LayoutSeed[] = [
     },
   },
   {
+    name: "Grid 2 — 4R",
+    mode: "GRID",
+    photoCount: 2,
+    config: {
+      mode: "GRID",
+      canvas: { width: 1800, height: 1200 },
+      background: "#ffffff",
+      slots: [
+        { x: 60, y: 60, w: 825, h: 1080, photoIndex: 0, radius: 12 },
+        { x: 915, y: 60, w: 825, h: 1080, photoIndex: 1, radius: 12 },
+      ],
+    },
+  },
+  {
     name: "Strip 3 — Classic",
     mode: "STRIP",
     photoCount: 3,

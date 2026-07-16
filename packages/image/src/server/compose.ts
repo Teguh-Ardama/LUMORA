@@ -9,12 +9,14 @@ import {
 
 
 export interface ComposeInput {
-  /** Raw captured photos, ordered by sequence (index = photoIndex). */
-  photos: Buffer[];
+  /** Raw captured photos and their specific filter parameters, ordered by sequence (index = photoIndex). */
+  photos: Array<{
+    buffer: Buffer;
+    filterParams: FilterParams;
+  }>;
   layoutConfig: unknown;
   /** Transparent PNG overlaid on top of the composition. */
   borderPng?: Buffer | null;
-  filterParams: FilterParams;
   sessionStickers?: Array<{
     png: Buffer;
     offsetX: number;
@@ -68,7 +70,7 @@ export async function composeSession(input: ComposeInput): Promise<ComposeOutput
     if (cached) return cached;
     const source = input.photos[photoIndex];
     if (!source) throw new Error(`Missing photo at index ${photoIndex}`);
-    const out = await applyFilter(source, input.filterParams);
+    const out = await applyFilter(source.buffer, source.filterParams);
     filteredCache.set(photoIndex, out);
     return out;
   }

@@ -57,6 +57,28 @@ const GLOBAL_STICKERS: StickerSeed[] = [
     </svg>`,
   },
   {
+    name: "Pita Merah",
+    anchorPoint: "FOREHEAD",
+    defaultScale: 0.9,
+    defaultOffsetX: 0,
+    defaultOffsetY: -70,
+    svg: `<svg width="200" height="100" xmlns="http://www.w3.org/2000/svg">
+      <path d="M100 50 Q150 10 200 40 Q150 90 100 50 Z" fill="#ff2a2a"/>
+      <path d="M100 50 Q50 10 0 40 Q50 90 100 50 Z" fill="#cc0000"/>
+      <circle cx="100" cy="50" r="15" fill="#ff4d4d"/>
+    </svg>`,
+  },
+  {
+    name: "Bintang",
+    anchorPoint: "FOREHEAD",
+    defaultScale: 0.8,
+    defaultOffsetX: 0,
+    defaultOffsetY: -90,
+    svg: `<svg width="100" height="100" xmlns="http://www.w3.org/2000/svg">
+      <polygon points="50,5 61,35 95,35 67,55 77,85 50,65 23,85 33,55 5,35 39,35" fill="#FFD700" stroke="#DAA520" stroke-width="2"/>
+    </svg>`,
+  },
+  {
     name: "Mahkota Bunga",
     anchorPoint: "FOREHEAD",
     defaultScale: 1.0,

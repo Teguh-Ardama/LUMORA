@@ -6,7 +6,7 @@ export const sessionWithRelations = {
   border: true,
   layout: true,
   filter: true,
-  photos: { where: { status: "UPLOADED" as const }, orderBy: { sequence: "asc" as const } },
+  photos: { where: { status: "UPLOADED" as const }, orderBy: { sequence: "asc" as const }, include: { filter: true } },
   event: { select: { id: true, name: true, organizationId: true, framesPerSession: true } },
   sessionStickers: { include: { sticker: true } },
 } satisfies Prisma.SessionInclude;

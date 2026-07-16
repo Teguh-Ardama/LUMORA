@@ -18,12 +18,14 @@ export async function uploadSessionPhoto(input: {
   blob: Blob;
   sequence: number;
   idempotencyKey: string;
+  filterId?: string;
 }): Promise<void> {
   const fd = new FormData();
   fd.set("file", input.blob, `frame-${input.sequence}.jpg`);
   fd.set("sequence", String(input.sequence));
   fd.set("idempotencyKey", input.idempotencyKey);
   fd.set("capturedAt", new Date().toISOString());
+  if (input.filterId) fd.set("filterId", input.filterId);
   await apiClient.postForm(`/api/sessions/${input.sessionId}/photos`, fd);
 }
 
@@ -77,10 +79,11 @@ export function useOfflineUploads(eventId: string): OfflineUploads {
   }, [flushNow, refreshCount]);
 
   const uploadOrQueue = React.useCallback(
-    async (input: { sessionId: string; blob: Blob; sequence: number }) => {
+    async (input: { sessionId: string; blob: Blob; sequence: number; filterId?: string }) => {
       const idempotencyKey = crypto.randomUUID();
       try {
         await uploadSessionPhoto({ ...input, idempotencyKey });
+        void qc.invalidateQueries({ queryKey: ["operator-context", eventId] });
         return "uploaded" as const;
       } catch (err) {
         if (!isQueueableUploadError(err)) throw err;
@@ -93,6 +96,7 @@ export function useOfflineUploads(eventId: string): OfflineUploads {
           blob: input.blob,
           createdAt: Date.now(),
           attempts: 0,
+          filterId: input.filterId,
         });
         await refreshCount();
         return "queued" as const;

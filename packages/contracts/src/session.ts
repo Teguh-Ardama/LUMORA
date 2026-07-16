@@ -23,9 +23,10 @@ export type UpdateSessionInput = z.infer<typeof updateSessionSchema>;
 
 /** Multipart fields accompanying a photo upload. */
 export const uploadPhotoFieldsSchema = z.object({
-  sequence: z.coerce.number().int().min(0).max(11),
-  idempotencyKey: idempotencyKeySchema,
+  sequence: z.coerce.number().int().min(0),
+  idempotencyKey: z.string().trim().min(5),
   capturedAt: z.coerce.date().optional(),
+  filterId: uuidSchema.optional(),
 });
 export type UploadPhotoFields = z.infer<typeof uploadPhotoFieldsSchema>;
 

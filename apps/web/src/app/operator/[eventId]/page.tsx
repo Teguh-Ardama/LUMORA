@@ -3,6 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowLeft,
@@ -112,8 +113,11 @@ export default function OperatorWorkspacePage() {
     if (event.type === "photo.quarantined") {
       toast.info("A DSLR photo arrived outside a session — check the inbox");
     }
-    if (event.type === "session.status" && event.status === "FAILED") {
-      toast.error("Compose failed — you can retry from the session panel");
+    if (event.type === "session.status") {
+      void qc.invalidateQueries({ queryKey: ["operator-context", eventId] });
+      if (event.status === "FAILED") {
+        toast.error("Compose failed — you can retry from the session panel");
+      }
     }
   });
 
@@ -124,6 +128,7 @@ export default function OperatorWorkspacePage() {
   if (session && session.filter.kind !== "NORMAL") lastLutFilterId.current = session.filter.id;
   if (session?.border) lastBorderId.current = session.border.id;
 
+  const qc = useQueryClient();
   const activeFilterParams = React.useMemo(() => {
     const raw = ctx?.filters.find((f) => f.id === session?.filter.id)?.params;
     const parsed = filterParamsSchema.safeParse(raw);
@@ -178,6 +183,7 @@ export default function OperatorWorkspacePage() {
         sessionId: session.id,
         blob,
         sequence: session.photos.length,
+        filterId: filterId,
       });
       if (result === "queued") {
         toast.warning("Koneksi bermasalah — foto disimpan offline dan akan di-upload otomatis");
@@ -460,7 +466,7 @@ export default function OperatorWorkspacePage() {
                       <Label className="text-xs uppercase tracking-wide text-muted-foreground">
                         <Wand2 className="mr-1 inline h-3 w-3" /> Filter (guest request)
                       </Label>
-                      <Select value={session.filter.id} onValueChange={(v) => changeSetting({ filterId: v })}>
+                      <Select disabled={session.status === "CAPTURING" && framesCaptured < framesTotal} value={session.filter.id} onValueChange={(v) => changeSetting({ filterId: v })}>
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
@@ -476,6 +482,7 @@ export default function OperatorWorkspacePage() {
                     <div className="space-y-1.5">
                       <Label className="text-xs uppercase tracking-wide text-muted-foreground">Layout</Label>
                       <Select
+                        disabled={session.status === "CAPTURING" && framesCaptured < framesTotal}
                         value={session.layout.id}
                         onValueChange={(v) => {
                           const newLayout = ctx.layouts.find((l) => l.id === v);
@@ -500,6 +507,7 @@ export default function OperatorWorkspacePage() {
                     <div className="space-y-1.5">
                       <Label className="text-xs uppercase tracking-wide text-muted-foreground">Border</Label>
                       <Select
+                        disabled={session.status === "CAPTURING" && framesCaptured < framesTotal}
                         value={session.border?.id ?? "none"}
                         onValueChange={(v) => changeSetting({ borderId: v === "none" ? null : v })}
                       >

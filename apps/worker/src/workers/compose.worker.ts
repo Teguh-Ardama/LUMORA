@@ -40,8 +40,14 @@ export function startComposeWorker(): Worker<ComposeJobData> {
 
       try {
         // Parallel fetch: photos + border + stickers
-        const [photoBuffers, borderPng, stickerBuffers, filterParams] = await Promise.all([
-          Promise.all(session.photos.map((p) => storage.getObject(p.storageKey))),
+        const [photoData, borderPng, stickerBuffers] = await Promise.all([
+          Promise.all(session.photos.map(async (p: any) => {
+            const buffer = await storage.getObject(p.storageKey);
+            // Use photo specific filter if exists, else fallback to session filter
+            const filterToUse = p.filter || session.filter;
+            const filterParams = filterParamsSchema.parse(filterToUse.params);
+            return { buffer, filterParams };
+          })),
           session.border ? storage.getObject(session.border.storageKey) : Promise.resolve(null),
           session.sessionStickers?.length
             ? Promise.all(
@@ -55,7 +61,6 @@ export function startComposeWorker(): Worker<ComposeJobData> {
                 ),
               )
             : Promise.resolve(undefined),
-          Promise.resolve(filterParamsSchema.parse(session.filter.params)),
         ]);
 
         const stickerOverlays: Array<{
@@ -84,10 +89,9 @@ export function startComposeWorker(): Worker<ComposeJobData> {
         }
 
         const result = await composeSession({
-          photos: photoBuffers,
+          photos: photoData,
           layoutConfig: session.layout.config,
           borderPng,
-          filterParams,
           sessionStickers: stickerBuffers,
           stickers: stickerOverlays.length > 0 ? stickerOverlays : undefined,
         });

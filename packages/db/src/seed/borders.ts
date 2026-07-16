@@ -46,6 +46,8 @@ const GLOBAL_BORDERS: BorderSeed[] = [
   { name: "Noir — Landscape 4R", width: 1800, height: 1200, svg: landscapeFrame("#14151a", "#b99b5f", "LUMORA") },
   { name: "Strip Classic — Portrait 4R", width: 1200, height: 1800, svg: stripFrame("#ffffff", "#d8d2c6", "LUMORA", "#8f887a") },
   { name: "Strip Noir — Portrait 4R", width: 1200, height: 1800, svg: stripFrame("#14151a", "#b99b5f", "LUMORA", "#b99b5f") },
+  { name: "Wedding Gold — Landscape", width: 1800, height: 1200, svg: landscapeFrame("#faf8f5", "#d4af37", "JUST MARRIED") },
+  { name: "Retro Pink — Strip", width: 1200, height: 1800, svg: stripFrame("#ffb6c1", "#ff69b4", "RETRO VIBES", "#ff69b4") },
 ];
 
 export async function seedBorders(): Promise<Border[]> {

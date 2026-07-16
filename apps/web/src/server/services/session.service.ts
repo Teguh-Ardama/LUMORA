@@ -224,7 +224,7 @@ export const sessionService = {
     user: SessionUser,
     sessionId: string,
     file: { buffer: Buffer; mime: string },
-    fields: { sequence: number; idempotencyKey: string; capturedAt?: Date },
+    fields: { sequence: number; idempotencyKey: string; capturedAt?: Date; filterId?: string },
   ) {
     const session = await sessionRepo.findByIdScoped(sessionId, user.organizationId);
     if (!session) throw new ApiError(ApiErrorCode.NOT_FOUND, "Session not found", 404);
@@ -260,6 +260,7 @@ export const sessionService = {
       sizeBytes: info.sizeBytes,
       idempotencyKey: fields.idempotencyKey,
       capturedAt: fields.capturedAt,
+      filterId: fields.filterId,
     });
 
     await publishRealtime(eventChannel(session.eventId), {
@@ -276,7 +277,8 @@ export const sessionService = {
   async requestCompose(
     user: SessionUser, 
     sessionId: string, 
-    appliedStickers?: Array<{ id: string; stickerId: string; x: number; y: number; width: number; height: number; rotation: number }>
+    appliedStickers?: Array<{ id: string; stickerId: string; x: number; y: number; width: number; height: number; rotation: number }>,
+    photoFilters?: Array<{ photoId: string, filterId: string }>
   ) {
     const session = await sessionRepo.findByIdScoped(sessionId, user.organizationId);
     if (!session) throw new ApiError(ApiErrorCode.NOT_FOUND, "Session not found", 404);
@@ -295,6 +297,16 @@ export const sessionService = {
       composeError: null,
     });
     if (!transitioned) throw badRequest("Session state changed, try again");
+
+    if (photoFilters && photoFilters.length > 0) {
+      const { prisma } = require("@lumora/db");
+      for (const { photoId, filterId } of photoFilters) {
+         await prisma.photo.update({
+            where: { id: photoId },
+            data: { filterId }
+         });
+      }
+    }
 
     await enqueueCompose({ sessionId, requestedBy: user.id, appliedStickers });
     await publishRealtime(eventChannel(session.eventId), {
