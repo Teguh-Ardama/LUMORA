@@ -15,6 +15,7 @@ import { startComposeWorker } from "./workers/compose.worker";
 import { startDeliveryWorker } from "./workers/delivery.worker";
 import { startNotificationWorker } from "./workers/notification.worker";
 import { startCleanupWorker } from "./workers/cleanup.worker";
+import { startRetentionWorker } from "./workers/retention.worker";
 
 const log = createLogger("worker");
 
@@ -24,6 +25,7 @@ async function main() {
     startDeliveryWorker(),
     startNotificationWorker(),
     await startCleanupWorker(),
+    await startRetentionWorker(),
   ];
   log.info("workers online", { queues: workers.map((w) => w.name) });
 

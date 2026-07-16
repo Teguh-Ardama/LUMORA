@@ -7,6 +7,7 @@ import {
   type LayoutSlot,
 } from "@lumora/contracts";
 
+
 export interface ComposeInput {
   /** Raw captured photos, ordered by sequence (index = photoIndex). */
   photos: Buffer[];
@@ -31,15 +32,20 @@ export interface ComposeOutput {
 }
 
 /**
- * FR-04 Composer Engine: photo + filter + layout + border in one
+ * FR-04 Composer Engine: photo + filter + layout + border + stickers in one
  * deterministic pass.
  *
  * Order of operations (identical for every session):
  *   1. validate layout JSON (FR-07 contract)
  *   2. per photo: apply filter, cover-crop into its slot, optional radius
  *   3. flatten onto the canvas background
- *   4. overlay the border PNG (resized to canvas) last
+ *   4. overlay sticker PNGs (if any)
  */
+
+// FR-04: enable Sharp cache & concurrency for faster repeat composes
+sharp.cache({ files: 20, items: 100 });
+sharp.concurrency(2);
+
 export async function composeSession(input: ComposeInput): Promise<ComposeOutput> {
   const layout: LayoutConfig = layoutConfigSchema.parse(input.layoutConfig);
   const slots = resolvePhysicalSlots(layout);
@@ -69,6 +75,21 @@ export async function composeSession(input: ComposeInput): Promise<ComposeOutput
       left: slot.x,
       top: slot.y,
     });
+  }
+
+  // FR-10: overlay face stickers (if any)
+  if (input.stickers?.length) {
+    for (const st of input.stickers) {
+      const sticker = await sharp(st.png)
+        .resize(Math.round(200 * st.scale), Math.round(200 * st.scale), { fit: "inside" })
+        .png()
+        .toBuffer();
+      overlays.push({
+        input: sticker,
+        left: Math.round(layout.canvas.width / 2 + st.offsetX),
+        top: Math.round(layout.canvas.height / 2 + st.offsetY),
+      });
+    }
   }
 
   if (input.borderPng) {
@@ -101,7 +122,7 @@ export async function composeSession(input: ComposeInput): Promise<ComposeOutput
   })
     .composite(overlays)
     .flatten({ background: layout.background })
-    .jpeg({ quality: 92, mozjpeg: true, chromaSubsampling: "4:4:4" })
+    .jpeg({ quality: 95, mozjpeg: true, chromaSubsampling: "4:4:4" })
     .toBuffer();
 
   return { buffer: composed, width: layout.canvas.width, height: layout.canvas.height };

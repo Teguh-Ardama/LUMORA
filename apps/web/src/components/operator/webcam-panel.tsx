@@ -63,11 +63,13 @@ export function WebcamPanel({
     streamRef.current?.getTracks().forEach((t) => t.stop());
     setCameraError(null);
     try {
+      // Coba preferred orientation — higher height favor portrait crop
+      // Webcam fisik emang landscape, tapi hasil final di-compose ke layout portrait
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           ...(id ? { deviceId: { exact: id } } : {}),
           width: { ideal: 1920 },
-          height: { ideal: 1080 },
+          height: { ideal: 1440 },
         },
         audio: false,
       });
@@ -161,14 +163,14 @@ export function WebcamPanel({
           ref={overlayRef}
           className="pointer-events-none absolute inset-0 h-full w-full object-contain"
         />
-        {/* Border look-preview (stretched: final crop differs per layout slot). */}
-        {borderOverlayUrl ? (
+        {/* Border look-preview (hanya saat capture sudah selesai, bukan pas live preview) */}
+        {framesCaptured > 0 && borderOverlayUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={borderOverlayUrl}
             alt=""
             aria-hidden
-            className="pointer-events-none absolute inset-0 h-full w-full opacity-90"
+            className="pointer-events-none absolute inset-0 h-full w-full opacity-70"
           />
         ) : null}
         {flash ? <div className="absolute inset-0 bg-white" /> : null}

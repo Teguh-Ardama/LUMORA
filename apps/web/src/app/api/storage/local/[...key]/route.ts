@@ -20,19 +20,19 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ key: string[] }> },
 ) {
-  if (getEnv().STORAGE_DRIVER !== "local") {
-    return new Response("Not found", { status: 404 });
-  }
-  const { key: segments } = await params;
-  const key = segments.map(decodeURIComponent).join("/");
-  const exp = Number(req.nextUrl.searchParams.get("exp") ?? 0);
-  const sig = req.nextUrl.searchParams.get("sig") ?? "";
-
-  if (!exp || !sig || !verifyLocalSignature(key, exp, sig)) {
-    return new Response("Link expired or invalid", { status: 403 });
-  }
-
   try {
+    if (getEnv().STORAGE_DRIVER !== "local") {
+      return new Response("Not found", { status: 404 });
+    }
+    const { key: segments } = await params;
+    const key = segments.map(decodeURIComponent).join("/");
+    const exp = Number(req.nextUrl.searchParams.get("exp") ?? 0);
+    const sig = req.nextUrl.searchParams.get("sig") ?? "";
+
+    if (!exp || !sig || !verifyLocalSignature(key, exp, sig)) {
+      return new Response("Link expired or invalid", { status: 403 });
+    }
+
     const body = await getStorage().getObject(key);
     const ext = key.split(".").pop()?.toLowerCase() ?? "";
     return new Response(new Uint8Array(body), {
@@ -42,7 +42,7 @@ export async function GET(
         "Content-Length": String(body.length),
       },
     });
-  } catch {
-    return new Response("Not found", { status: 404 });
+  } catch (err: any) {
+    return new Response(err.message || "Unknown error", { status: 500 });
   }
 }

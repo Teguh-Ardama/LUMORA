@@ -8,6 +8,7 @@ export const sessionWithRelations = {
   filter: true,
   photos: { where: { status: "UPLOADED" as const }, orderBy: { sequence: "asc" as const } },
   event: { select: { id: true, name: true, organizationId: true, framesPerSession: true } },
+  sessionStickers: { include: { sticker: true } },
 } satisfies Prisma.SessionInclude;
 
 export type SessionWithRelations = Prisma.SessionGetPayload<{

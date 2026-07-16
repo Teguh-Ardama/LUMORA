@@ -1,5 +1,7 @@
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
+import * as fs from "node:fs/promises";
+import * as path from "node:path";
 import archiver from "archiver";
 import { PassThrough, Readable } from "node:stream";
 import {
@@ -7,7 +9,7 @@ import {
   paginationQuerySchema,
   uuidSchema,
 } from "@lumora/contracts";
-import { getStorage } from "@lumora/core";
+import { getStorage, getEnv } from "@lumora/core";
 import { prisma } from "@lumora/db";
 import { mediaService } from "../../services/media.service";
 import { assertEventAccess, notFound, ok, rateLimitBy, requireAuth, requirePermission } from "../middleware";
@@ -18,6 +20,21 @@ import type { ApiEnv } from "../context";
  * streamed ZIP export of every composed photo of an event.
  */
 export const galleryRoute = new Hono<ApiEnv>()
+  /** Serve local storage files (dev mode). */
+  .get("/files", async (c) => {
+    const key = c.req.query("key");
+    if (!key) return c.notFound();
+    const safeKey = key.replace(/\.\./g, "");
+    const filePath = path.resolve(getEnv().LOCAL_STORAGE_DIR, safeKey);
+    try {
+      const buffer = await fs.readFile(filePath);
+      const ext = path.extname(filePath).toLowerCase();
+      const mime = ext === ".png" ? "image/png" : ext === ".jpg" || ext === ".jpeg" ? "image/jpeg" : "application/octet-stream";
+      return new Response(buffer, { headers: { "Content-Type": mime, "Cache-Control": "public, max-age=86400" } });
+    } catch {
+      return c.notFound();
+    }
+  })
   .use("*", requireAuth)
 
   .get(

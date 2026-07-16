@@ -68,7 +68,7 @@ export class LocalStorageService implements StorageService {
     const exp = Math.floor(Date.now() / 1000) + expiresInSeconds;
     const sig = hmacSign(`${key}:${exp}`, env.SIGNED_URL_SECRET);
     const encodedKey = key.split("/").map(encodeURIComponent).join("/");
-    return `${env.APP_URL}/api/storage/local/${encodedKey}?exp=${exp}&sig=${sig}`;
+    return `/api/storage/local/${encodedKey}?exp=${exp}&sig=${sig}`;
   }
 }
 

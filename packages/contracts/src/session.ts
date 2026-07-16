@@ -34,7 +34,7 @@ export const composeRequestSchema = z.object({
 });
 
 /** Hard limits enforced server-side regardless of client compression (FR-03). */
-export const PHOTO_UPLOAD_MAX_BYTES = 4 * 1024 * 1024; // absolute reject
-export const PHOTO_TARGET_MAX_BYTES = Math.round(1.5 * 1024 * 1024); // FR-03 target
-export const PHOTO_MIN_LONG_EDGE = 1200;
+export const PHOTO_UPLOAD_MAX_BYTES = 8 * 1024 * 1024; // absolute reject
+export const PHOTO_TARGET_MAX_BYTES = Math.round(3.5 * 1024 * 1024); // Naikin dari 1.5MB → 3.5MB biar lebih jernih
+export const PHOTO_MIN_LONG_EDGE = 1800; // Naikin dari 1200px → 1800px (min cetak 4R)
 export const ALLOWED_PHOTO_MIME = ["image/jpeg", "image/png", "image/webp"] as const;
