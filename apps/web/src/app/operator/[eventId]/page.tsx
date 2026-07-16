@@ -53,10 +53,12 @@ import {
   useQuarantine,
   useStartSession,
   useUpdateSession,
+  useStickers,
   type SessionPayload,
 } from "@/lib/hooks/use-operator";
 import { WebcamPanel } from "@/components/operator/webcam-panel";
 import { DeliveryPanel } from "@/components/operator/delivery-panel";
+import { StickerPad } from "@/components/operator/sticker-pad";
 import { ApiClientError } from "@/lib/api";
 
 /** The composer stretches borders to fill the layout canvas exactly — a
@@ -78,6 +80,7 @@ export default function OperatorWorkspacePage() {
   const compose = useCompose(eventId);
   const attachPhoto = useAttachPhoto(eventId);
   const { data: quarantine } = useQuarantine(eventId);
+  const { data: stickersData } = useStickers();
 
   const [captureSource, setCaptureSource] = React.useState<"WEBCAM" | "BRIDGE">("WEBCAM");
   const [layoutId, setLayoutId] = React.useState<string>("");
@@ -363,6 +366,20 @@ export default function OperatorWorkspacePage() {
                 </Button>
               </CardContent>
             </Card>
+          ) : session.status === "CAPTURING" && framesCaptured >= framesTotal ? (
+            <div className="h-full bg-card rounded-lg border p-4">
+              <StickerPad
+                session={session}
+                stickers={stickersData?.stickers ?? []}
+                isComposing={compose.isPending}
+                onCompose={(appliedStickers) =>
+                  compose.mutate(
+                    { sessionId: session.id, appliedStickers },
+                    { onError: (err) => toast.error(err instanceof ApiClientError ? err.message : "Compose failed") },
+                  )
+                }
+              />
+            </div>
           ) : session.status === "CAPTURING" && session.captureSource === "WEBCAM" ? (
             <WebcamPanel
               countdownSeconds={ctx.event.countdownSeconds}
@@ -497,20 +514,22 @@ export default function OperatorWorkspacePage() {
               ) : null}
 
               {/* Actions */}
-              {session.status === "CAPTURING" || session.status === "FAILED" ? (
+              {session.status === "FAILED" ? (
                 <Button
                   className="w-full"
                   size="lg"
-                  disabled={!canCompose && session.status !== "FAILED"}
                   loading={compose.isPending}
                   onClick={() =>
-                    compose.mutate(session.id, {
-                      onError: (err) =>
-                        toast.error(err instanceof ApiClientError ? err.message : "Compose failed"),
-                    })
+                    compose.mutate(
+                      { sessionId: session.id },
+                      {
+                        onError: (err) =>
+                          toast.error(err instanceof ApiClientError ? err.message : "Compose failed"),
+                      },
+                    )
                   }
                 >
-                  <Sparkles /> {session.status === "FAILED" ? "Retry compose" : "Compose photo"}
+                  <Sparkles /> Retry compose
                 </Button>
               ) : null}
 

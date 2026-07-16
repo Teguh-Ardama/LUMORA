@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { LayoutConfig, RealtimeEvent } from "@lumora/contracts";
+import type { LayoutConfig, RealtimeEvent, Sticker } from "@lumora/contracts";
 import { apiClient } from "../api";
 
 // ── Types mirrored from the operator API ─────────────────────────────────
@@ -111,9 +111,18 @@ export function useUploadPhoto() {
 export function useCompose(eventId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (sessionId: string) =>
-      apiClient.post<{ session: SessionPayload }>(`/api/sessions/${sessionId}/compose`),
+    mutationFn: (input: { sessionId: string; appliedStickers?: Array<{ id: string; x: number; y: number; width: number; height: number; rotation: number }> }) =>
+      apiClient.post<{ session: SessionPayload }>(`/api/sessions/${input.sessionId}/compose`, {
+        appliedStickers: input.appliedStickers,
+      }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["operator-context", eventId] }),
+  });
+}
+
+export function useStickers() {
+  return useQuery({
+    queryKey: ["stickers"],
+    queryFn: () => apiClient.get<{ stickers: Sticker[] }>("/api/stickers"),
   });
 }
 

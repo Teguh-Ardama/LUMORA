@@ -3,6 +3,7 @@ import { authRoute } from "./routes/auth.route";
 import { orgRoute } from "./routes/org.route";
 import { eventRoute } from "./routes/event.route";
 import { templateRoute } from "./routes/template.route";
+import { stickerRoute } from "./routes/sticker.route";
 import { eventAnalyticsRoute } from "./routes/analytics.route";
 import { printRoute, sessionRoute } from "./routes/session.route";
 import { bridgeAdminRoute, bridgeRoute } from "./routes/bridge.route";
@@ -24,6 +25,7 @@ export const api = new Hono<ApiEnv>()
   .route("/analytics", analyticsRoute)
   .route("/events", eventRoute)
   .route("/templates", templateRoute)
+  .route("/stickers", stickerRoute)
   .route("/sessions", sessionRoute)
   .route("/print-jobs", printRoute)
   .route("/bridge", bridgeRoute)

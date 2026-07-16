@@ -12,6 +12,15 @@ export type QueueName = (typeof QueueName)[keyof typeof QueueName];
 export interface ComposeJobData {
   sessionId: string;
   requestedBy: string | null;
+  appliedStickers?: Array<{
+    id: string;
+    stickerId: string;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    rotation: number;
+  }>;
 }
 
 export interface DeliveryJobData {

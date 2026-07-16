@@ -8,9 +8,13 @@
  * soft translucency — premium photobooth props, never novelty clip-art.
  */
 
+export type ArAnchor = "eyes" | "nose" | "mouth" | "head";
+
 export interface ArStyle {
   id: string;
   name: string;
+  /** Where to anchor the accessory. Default is 'eyes'. */
+  anchor?: ArAnchor;
   /** Draw centered at origin; +x = toward subject's left eye, y down. */
   draw: (ctx: CanvasRenderingContext2D, eyeDistance: number) => void;
 }
@@ -124,10 +128,100 @@ function drawRetroRound(ctx: CanvasRenderingContext2D, d: number): void {
   ctx.stroke();
 }
 
+/** Mustache: Classic handlebar drawn above the mouth. */
+function drawMustache(ctx: CanvasRenderingContext2D, d: number): void {
+  const w = d * 0.8;
+  const h = d * 0.25;
+  const color = "#2a1f1a"; // Dark brown
+
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  // Start from center top (under nose)
+  ctx.moveTo(0, -h * 0.2);
+  // Curve down to right tip
+  ctx.bezierCurveTo(w * 0.2, -h * 0.2, w * 0.4, h * 0.5, w / 2, h * 0.8);
+  // Curve back up to center bottom
+  ctx.bezierCurveTo(w * 0.3, h * 0.9, w * 0.1, h * 0.3, 0, h * 0.2);
+  // Curve down to left tip
+  ctx.bezierCurveTo(-w * 0.1, h * 0.3, -w * 0.3, h * 0.9, -w / 2, h * 0.8);
+  // Curve back up to center top
+  ctx.bezierCurveTo(-w * 0.4, h * 0.5, -w * 0.2, -h * 0.2, 0, -h * 0.2);
+  ctx.fill();
+}
+
+/** Bunny Ears: Two tall ears drawn on top of the head. */
+function drawBunnyEars(ctx: CanvasRenderingContext2D, d: number): void {
+  const earW = d * 0.35;
+  const earH = d * 1.5;
+  const gap = d * 0.4;
+  
+  for (const side of [-1, 1] as const) {
+    const cx = side * gap;
+    ctx.save();
+    ctx.translate(cx, -earH * 0.4);
+    // Slight outward tilt
+    ctx.rotate(side * 0.15);
+    
+    // Outer white/fluffy part
+    ctx.fillStyle = "#ffffff";
+    ctx.beginPath();
+    ctx.ellipse(0, 0, earW / 2, earH / 2, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.lineWidth = d * 0.02;
+    ctx.strokeStyle = "#e2e8f0";
+    ctx.stroke();
+    
+    // Inner pink part
+    ctx.fillStyle = "#fbcfe8";
+    ctx.beginPath();
+    ctx.ellipse(0, earH * 0.05, earW * 0.25, earH * 0.35, 0, 0, Math.PI * 2);
+    ctx.fill();
+    
+    ctx.restore();
+  }
+}
+
+/** Cat: A cute pink nose and whiskers drawn on the nose. */
+function drawCatNose(ctx: CanvasRenderingContext2D, d: number): void {
+  const noseW = d * 0.25;
+  const noseH = d * 0.15;
+  
+  // Nose
+  ctx.fillStyle = "#f472b6";
+  ctx.beginPath();
+  // Triangle pointing down with rounded corners
+  ctx.moveTo(-noseW / 2, -noseH / 2);
+  ctx.quadraticCurveTo(0, -noseH * 0.8, noseW / 2, -noseH / 2);
+  ctx.lineTo(noseW * 0.1, noseH / 2);
+  ctx.quadraticCurveTo(0, noseH * 0.8, -noseW * 0.1, noseH / 2);
+  ctx.closePath();
+  ctx.fill();
+  
+  // Whiskers
+  ctx.strokeStyle = "#1e293b";
+  ctx.lineWidth = d * 0.015;
+  ctx.lineCap = "round";
+  
+  const whiskerL = d * 0.4;
+  for (const side of [-1, 1] as const) {
+    for (const angle of [-0.1, 0, 0.1]) {
+      ctx.beginPath();
+      // Start slightly outside the nose
+      const startX = side * noseW * 0.6;
+      ctx.moveTo(startX, 0);
+      ctx.lineTo(startX + side * whiskerL, angle * d * 0.5);
+      ctx.stroke();
+    }
+  }
+}
+
 export const AR_STYLES: readonly ArStyle[] = [
-  { id: "wayfarer", name: "Classic Noir", draw: drawWayfarer },
-  { id: "aviator", name: "Aviator Gold", draw: drawAviator },
-  { id: "round", name: "Retro Round", draw: drawRetroRound },
+  { id: "wayfarer", name: "Classic Noir", draw: drawWayfarer, anchor: "eyes" },
+  { id: "aviator", name: "Aviator Gold", draw: drawAviator, anchor: "eyes" },
+  { id: "round", name: "Retro Round", draw: drawRetroRound, anchor: "eyes" },
+  { id: "mustache", name: "Gentleman", draw: drawMustache, anchor: "mouth" },
+  { id: "bunny", name: "Bunny Ears", draw: drawBunnyEars, anchor: "head" },
+  { id: "cat", name: "Meow", draw: drawCatNose, anchor: "nose" },
 ];
 
 export function getArStyle(id: string | null): ArStyle | null {

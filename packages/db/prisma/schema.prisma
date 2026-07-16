@@ -57,6 +57,7 @@ enum PhotoSource {
 enum DeliveryChannel {
   QR
   EMAIL
+  WHATSAPP
 }
 
 enum DeliveryStatus {
@@ -180,7 +181,6 @@ model Organization {
   notifications Notification[]
   creditTransactions CreditTransaction[]
   topups        Topup[]
-  stickers      Sticker[]
 
   @@map("organizations")
 }
@@ -268,7 +268,6 @@ model Event {
   deliveries    Delivery[]
   printJobs     PrintJob[]
   bridgeDevices BridgeDevice[]
-  stickers      Sticker[]       @relation("EventStickers")
 
   @@index([organizationId, status])
   @@index([organizationId, startsAt])
@@ -409,6 +408,7 @@ model Session {
   status         SessionStatus @default(CAPTURING)
   guestName      String?       @map("guest_name") @db.VarChar(120)
   guestEmail     String?       @map("guest_email") @db.VarChar(255)
+  guestWaNumber  String?       @map("guest_wa_number") @db.VarChar(50)
   timerDurationSeconds Int?    @map("timer_duration_seconds")
   timerStartedAt DateTime?     @map("timer_started_at")
   timerExpiresAt DateTime?     @map("timer_expires_at")

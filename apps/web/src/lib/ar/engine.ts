@@ -10,6 +10,9 @@ const MODEL_URL =
 // Canonical FaceMesh landmark indices.
 const RIGHT_EYE_OUTER = 33; // subject's right (image left)
 const LEFT_EYE_OUTER = 263;
+const NOSE_TIP = 1;
+const UPPER_LIP_CENTER = 164;
+const HEAD_TOP = 10;
 
 /**
  * MediaPipe's WASM runtime prints informational messages (e.g. "INFO:
@@ -186,8 +189,32 @@ export class FaceArEngine {
       if (eyeDistance < 12) continue; // face too small / spurious detection
 
       const angle = Math.atan2(ly - ry, lx - rx);
+      
+      let anchorX = (rx + lx) / 2;
+      let anchorY = (ry + ly) / 2;
+      
+      if (this.style.anchor === "nose") {
+        const nose = landmarks[NOSE_TIP];
+        if (nose) {
+          anchorX = nose.x * overlay.width;
+          anchorY = nose.y * overlay.height;
+        }
+      } else if (this.style.anchor === "mouth") {
+        const lip = landmarks[UPPER_LIP_CENTER];
+        if (lip) {
+          anchorX = lip.x * overlay.width;
+          anchorY = lip.y * overlay.height;
+        }
+      } else if (this.style.anchor === "head") {
+        const head = landmarks[HEAD_TOP];
+        if (head) {
+          anchorX = head.x * overlay.width;
+          anchorY = head.y * overlay.height;
+        }
+      }
+
       ctx.save();
-      ctx.translate((rx + lx) / 2, (ry + ly) / 2);
+      ctx.translate(anchorX, anchorY);
       ctx.rotate(angle);
       this.style.draw(ctx, eyeDistance);
       ctx.restore();

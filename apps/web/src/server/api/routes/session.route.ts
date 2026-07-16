@@ -95,11 +95,34 @@ export const sessionRoute = new Hono<ApiEnv>()
     },
   )
 
-  .post("/:id/compose", requirePermission(Permission.SESSION_OPERATE), async (c) => {
-    const user = c.get("user");
-    const session = await sessionService.requestCompose(user, c.req.param("id"));
-    return ok(c, { session });
-  })
+  .post(
+    "/:id/compose",
+    requirePermission(Permission.SESSION_OPERATE),
+    zValidator(
+      "json",
+      z.object({
+        appliedStickers: z
+          .array(
+            z.object({
+              id: z.string(),
+              stickerId: uuidSchema,
+              x: z.number(),
+              y: z.number(),
+              width: z.number(),
+              height: z.number(),
+              rotation: z.number(),
+            }),
+          )
+          .optional(),
+      }).optional(),
+    ),
+    async (c) => {
+      const user = c.get("user");
+      const input = c.req.valid("json") || {};
+      const session = await sessionService.requestCompose(user, c.req.param("id"), input.appliedStickers);
+      return ok(c, { session });
+    },
+  )
 
   .post("/:id/qr", requirePermission(Permission.SESSION_OPERATE), async (c) => {
     const user = c.get("user");

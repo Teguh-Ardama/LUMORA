@@ -11,7 +11,7 @@ import {
 } from "@lumora/core";
 import { eventChannel, filterParamsSchema } from "@lumora/contracts";
 import { composeSession } from "@lumora/image/server";
-import { auditRepo, billingRepo, getSessionPrice, sessionRepo } from "@lumora/db";
+import { auditRepo, billingRepo, getSessionPrice, sessionRepo, stickerRepo } from "@lumora/db";
 import { getEnv } from "@lumora/core";
 
 const log = createLogger("compose");
@@ -46,11 +46,37 @@ export function startComposeWorker(): Worker<ComposeJobData> {
         const borderPng = session.border ? await storage.getObject(session.border.storageKey) : null;
         const filterParams = filterParamsSchema.parse(session.filter.params);
 
+        const stickerOverlays: Array<{
+          buffer: Buffer;
+          x: number;
+          y: number;
+          width: number;
+          height: number;
+          rotation: number;
+        }> = [];
+
+        if (job.data.appliedStickers && job.data.appliedStickers.length > 0) {
+          for (const s of job.data.appliedStickers) {
+            const sticker = await stickerRepo.findById(s.stickerId);
+            if (!sticker) continue;
+            const buffer = await storage.getObject(sticker.storageKey);
+            stickerOverlays.push({
+              buffer,
+              x: s.x,
+              y: s.y,
+              width: s.width,
+              height: s.height,
+              rotation: s.rotation,
+            });
+          }
+        }
+
         const result = await composeSession({
           photos: photoBuffers,
           layoutConfig: session.layout.config,
           borderPng,
           filterParams,
+          stickers: stickerOverlays.length > 0 ? stickerOverlays : undefined,
         });
 
         const composedKey = storageKeys.composed(session.organizationId, session.eventId, session.id);

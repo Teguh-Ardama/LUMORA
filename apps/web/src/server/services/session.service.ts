@@ -273,7 +273,11 @@ export const sessionService = {
   },
 
   /** Transition to COMPOSING and enqueue the worker job (FR-04). */
-  async requestCompose(user: SessionUser, sessionId: string) {
+  async requestCompose(
+    user: SessionUser, 
+    sessionId: string, 
+    appliedStickers?: Array<{ id: string; stickerId: string; x: number; y: number; width: number; height: number; rotation: number }>
+  ) {
     const session = await sessionRepo.findByIdScoped(sessionId, user.organizationId);
     if (!session) throw new ApiError(ApiErrorCode.NOT_FOUND, "Session not found", 404);
     if (session.status === "COMPOSING") return serializeSession(session);
@@ -292,7 +296,7 @@ export const sessionService = {
     });
     if (!transitioned) throw badRequest("Session state changed, try again");
 
-    await enqueueCompose({ sessionId, requestedBy: user.id });
+    await enqueueCompose({ sessionId, requestedBy: user.id, appliedStickers });
     await publishRealtime(eventChannel(session.eventId), {
       type: "session.status",
       sessionId,

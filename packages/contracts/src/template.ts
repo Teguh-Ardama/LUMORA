@@ -62,3 +62,13 @@ export const createFilterSchema = z.object({
   params: filterParamsSchema,
 });
 export type CreateFilterInput = z.infer<typeof createFilterSchema>;
+
+export interface Sticker {
+  id: string;
+  name: string;
+  url: string; // The presigned URL
+  anchorPoint: string;
+  defaultScale: number;
+  defaultOffsetX: number;
+  defaultOffsetY: number;
+}

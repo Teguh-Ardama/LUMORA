@@ -98,6 +98,28 @@ const GLOBAL_STICKERS: StickerSeed[] = [
       <circle cx="55" cy="55" r="38" fill="none" stroke="#b8860b" stroke-width="1.5"/>
     </svg>`,
   },
+  {
+    name: "Congrats",
+    anchorPoint: "FOREHEAD",
+    defaultScale: 1.2,
+    defaultOffsetX: 0,
+    defaultOffsetY: -120,
+    svg: `<svg width="300" height="100" xmlns="http://www.w3.org/2000/svg">
+      <path d="M10 50 Q 150 10 290 50 L 290 90 Q 150 50 10 90 Z" fill="#111827"/>
+      <text x="150" y="65" font-family="sans-serif" font-size="32" font-weight="bold" fill="#F8FAFC" text-anchor="middle" transform="rotate(-5 150 65)">Congrats!</text>
+    </svg>`,
+  },
+  {
+    name: "Lets Celebrate",
+    anchorPoint: "FOREHEAD",
+    defaultScale: 1.2,
+    defaultOffsetX: 0,
+    defaultOffsetY: -120,
+    svg: `<svg width="300" height="100" xmlns="http://www.w3.org/2000/svg">
+      <path d="M10 50 Q 150 10 290 50 L 290 90 Q 150 50 10 90 Z" fill="#111827"/>
+      <text x="150" y="65" font-family="sans-serif" font-size="28" font-weight="bold" fill="#F8FAFC" text-anchor="middle" transform="rotate(5 150 65)">Let's Celebrate!</text>
+    </svg>`,
+  },
 ];
 
 export async function seedStickers(): Promise<Sticker[]> {
@@ -114,14 +136,13 @@ export async function seedStickers(): Promise<Sticker[]> {
     const png = await sharp(Buffer.from(s.svg)).png().toBuffer();
     const created = await prisma.sticker.create({
       data: {
-        organizationId: null,
-        eventId: null,
         name: s.name,
         storageKey: "pending",
         anchorPoint: s.anchorPoint,
         defaultScale: s.defaultScale,
         defaultOffsetX: s.defaultOffsetX,
         defaultOffsetY: s.defaultOffsetY,
+        sizeBytes: png.length,
       },
     });
     const key = storageKeys.sticker("global", created.id);

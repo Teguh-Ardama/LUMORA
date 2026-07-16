@@ -14,6 +14,14 @@ export interface ComposeInput {
   /** Transparent PNG overlaid on top of the composition. */
   borderPng?: Buffer | null;
   filterParams: FilterParams;
+  stickers?: Array<{
+    buffer: Buffer;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    rotation: number;
+  }>;
 }
 
 export interface ComposeOutput {
@@ -69,6 +77,18 @@ export async function composeSession(input: ComposeInput): Promise<ComposeOutput
       .png()
       .toBuffer();
     overlays.push({ input: border, left: 0, top: 0 });
+  }
+
+  if (input.stickers) {
+    for (const sticker of input.stickers) {
+      // Rotation uses background: transparent to not have black corners
+      const stickerImg = await sharp(sticker.buffer)
+        .resize(Math.round(sticker.width), Math.round(sticker.height), { fit: "contain" })
+        .rotate(sticker.rotation, { background: { r: 0, g: 0, b: 0, alpha: 0 } })
+        .png()
+        .toBuffer();
+      overlays.push({ input: stickerImg, left: Math.round(sticker.x), top: Math.round(sticker.y) });
+    }
   }
 
   const composed = await sharp({
