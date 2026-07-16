@@ -222,7 +222,7 @@ export default function OperatorWorkspacePage() {
     : null;
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex h-screen flex-col overflow-hidden">
       {/* Workspace header */}
       <header className="glass sticky top-0 z-40 flex h-14 items-center gap-3 border-b px-4">
         <Button variant="ghost" size="icon" asChild aria-label="Back to event picker">
@@ -405,7 +405,7 @@ export default function OperatorWorkspacePage() {
         </div>
 
         {/* ── Session panel ────────────────────────────────────────────── */}
-        <div className="space-y-4">
+        <div className="space-y-4 min-h-0 overflow-y-auto p-1 -m-1">
           {session && session.status !== "CLOSED" ? (
             <>
               {/* Frames strip */}
