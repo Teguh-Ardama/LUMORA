@@ -54,7 +54,8 @@ function appendLog(line: LogLine): void {
   const logs = $("logs");
   const div = document.createElement("div");
   div.className = line.level;
-  const time = line.ts.slice(11, 19);
+  const date = new Date(line.ts);
+  const time = date.toLocaleTimeString("id-ID", { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
   div.textContent = `${time}  ${line.message}`;
   logs.appendChild(div);
   while (logs.childElementCount > 400) logs.firstElementChild?.remove();
