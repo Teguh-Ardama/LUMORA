@@ -7,6 +7,8 @@ import { getConfigStore } from "./config-store";
 import { attachLogWindow, blog } from "./logger";
 import { OfflineQueue } from "./offline-queue";
 import { TetherWatcher } from "./watcher";
+import { startRealtimeStream, stopRealtimeStream } from "./stream";
+import { getDownloadedCount } from "./downloader";
 
 const HEARTBEAT_INTERVAL_MS = 15_000;
 
@@ -28,17 +30,19 @@ function currentState(): BridgeState {
     paired: Boolean(cfg.deviceToken),
     eventName: cfg.eventName,
     watchFolder: cfg.watchFolder,
+    outputFolder: cfg.outputFolder,
     watcherActive,
     online,
     queueDepth: queue?.depth ?? 0,
     activeSessionId: activeSession?.id ?? null,
     uploadedCount: queue?.uploadedCount ?? 0,
+    downloadedCount: getDownloadedCount(),
     lastUploadAt: queue?.lastUploadAt ?? null,
     appVersion: app.getVersion(),
   };
 }
 
-function broadcastState(): void {
+export function broadcastState(): void {
   if (win && !win.isDestroyed()) {
     win.webContents.send(IpcChannel.STATE_CHANGED, currentState());
   }
@@ -102,8 +106,9 @@ function wireIpc(): void {
         eventId: result.eventId,
         eventName: result.eventName,
       });
-      blog.info(`Paired with event "${result.eventName}"`);
       startHeartbeat();
+      startRealtimeStream();
+      blog.info(`Paired with event "${result.eventName}"`);
       broadcastState();
       return { ok: true };
     } catch (err) {
@@ -119,6 +124,7 @@ function wireIpc(): void {
     getConfigStore().clear();
     online = false;
     activeSession = null;
+    stopRealtimeStream();
     blog.info("Unpaired — configuration cleared");
     broadcastState();
   });
@@ -134,6 +140,21 @@ function wireIpc(): void {
       getConfigStore().set({ watchFolder: folder });
       blog.info(`Tether folder set: ${folder}`);
       if (watcherActive) watcher.start(folder);
+      broadcastState();
+    }
+    return folder;
+  });
+
+  ipcMain.handle(IpcChannel.SELECT_OUTPUT_FOLDER, async () => {
+    if (!win) return null;
+    const result = await dialog.showOpenDialog(win, {
+      title: "Select Output Folder for Prints",
+      properties: ["openDirectory"],
+    });
+    const folder = result.filePaths[0] ?? null;
+    if (folder) {
+      getConfigStore().set({ outputFolder: folder });
+      blog.info(`Output folder set: ${folder}`);
       broadcastState();
     }
     return folder;
@@ -197,7 +218,10 @@ void app.whenReady().then(() => {
   wireIpc();
   createWindow();
 
-  if (getConfigStore().get().deviceToken) startHeartbeat();
+  if (getConfigStore().get().deviceToken) {
+    startHeartbeat();
+    startRealtimeStream();
+  }
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

@@ -10,6 +10,7 @@ const DEFAULTS: BridgeConfig = {
   eventId: null,
   eventName: null,
   watchFolder: null,
+  outputFolder: null,
 };
 
 /** Simple atomic JSON store in the user-data directory. */

@@ -78,7 +78,7 @@
 
       /* Dashboard view */
       #dash-view { display: none; flex: 1; flex-direction: column; padding: 16px 18px; gap: 14px; overflow: hidden; }
-      .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+      .cards { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
       .card {
         background: var(--surface); border: 1px solid var(--border);
         border-radius: var(--radius); padding: 12px 14px;
@@ -134,13 +134,19 @@
           <div class="card"><div class="k">Watcher</div><div class="v" id="stat-watcher">stopped</div></div>
           <div class="card"><div class="k">Upload queue</div><div class="v" id="stat-queue">0</div></div>
           <div class="card"><div class="k">Uploaded</div><div class="v" id="stat-uploaded">0</div></div>
+          <div class="card"><div class="k">Printed</div><div class="v" id="stat-downloaded">0</div></div>
           <div class="card"><div class="k">Active session</div><div class="v" id="stat-session">—</div></div>
         </div>
 
         <div class="row">
-          <div class="folder" id="folder-path">No tether folder selected</div>
-          <button id="folder-btn">Choose folder…</button>
+          <div class="folder" id="folder-path" title="Tether Folder">No tether folder selected</div>
+          <button id="folder-btn">Choose Tether…</button>
           <button id="watch-btn" class="primary">Start watching</button>
+        </div>
+
+        <div class="row">
+          <div class="folder" id="output-folder-path" title="Output Folder">No output folder selected</div>
+          <button id="output-folder-btn">Choose Output…</button>
         </div>
 
         <div id="logs" aria-label="Activity log"></div>

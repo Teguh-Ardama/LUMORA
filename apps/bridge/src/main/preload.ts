@@ -12,6 +12,7 @@ const api: BridgeRendererApi = {
   pair: (req: PairRequest) => ipcRenderer.invoke(IpcChannel.PAIR, req) as Promise<{ ok: boolean; error?: string }>,
   unpair: () => ipcRenderer.invoke(IpcChannel.UNPAIR) as Promise<void>,
   selectFolder: () => ipcRenderer.invoke(IpcChannel.SELECT_FOLDER) as Promise<string | null>,
+  selectOutputFolder: () => ipcRenderer.invoke(IpcChannel.SELECT_OUTPUT_FOLDER) as Promise<string | null>,
   setWatcher: (active: boolean) => ipcRenderer.invoke(IpcChannel.SET_WATCHER, active) as Promise<void>,
   onStateChanged: (cb: (state: BridgeState) => void) => {
     ipcRenderer.on(IpcChannel.STATE_CHANGED, (_e, state: BridgeState) => cb(state));

@@ -57,7 +57,7 @@ class LocalStorageDriver implements StorageDriver {
 
   async getSignedUrl(key: string, _ttlSeconds: number): Promise<string> {
     // For local dev, return a route served by the Next.js API handler
-    return `/api/gallery/files?key=${encodeURIComponent(key)}`;
+    return `${getEnv().APP_URL}/api/gallery/files?key=${encodeURIComponent(key)}`;
   }
 
   async getSignedUploadUrl(key: string, _contentType: string): Promise<string> {

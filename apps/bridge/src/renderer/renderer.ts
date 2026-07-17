@@ -41,8 +41,10 @@ function render(state: BridgeState): void {
   $("stat-watcher").textContent = state.watcherActive ? "watching" : "stopped";
   $("stat-queue").textContent = String(state.queueDepth);
   $("stat-uploaded").textContent = String(state.uploadedCount);
+  $("stat-downloaded").textContent = String(state.downloadedCount);
   $("stat-session").textContent = state.activeSessionId ? state.activeSessionId.slice(0, 8) : "—";
   $("folder-path").textContent = state.watchFolder ?? "No tether folder selected";
+  $("output-folder-path").textContent = state.outputFolder ?? "No output folder selected";
   $("version-hint").textContent = `LUMORA Bridge v${state.appVersion}`;
 
   const watchBtn = $<HTMLButtonElement>("watch-btn");
@@ -86,6 +88,11 @@ $("pair-btn").addEventListener("click", async () => {
 
 $("folder-btn").addEventListener("click", async () => {
   await api.selectFolder();
+  render(await api.getState());
+});
+
+$("output-folder-btn").addEventListener("click", async () => {
+  await api.selectOutputFolder();
   render(await api.getState());
 });
 

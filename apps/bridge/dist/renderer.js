@@ -28,8 +28,10 @@
     $("stat-watcher").textContent = state.watcherActive ? "watching" : "stopped";
     $("stat-queue").textContent = String(state.queueDepth);
     $("stat-uploaded").textContent = String(state.uploadedCount);
+    $("stat-downloaded").textContent = String(state.downloadedCount);
     $("stat-session").textContent = state.activeSessionId ? state.activeSessionId.slice(0, 8) : "\u2014";
     $("folder-path").textContent = state.watchFolder ?? "No tether folder selected";
+    $("output-folder-path").textContent = state.outputFolder ?? "No output folder selected";
     $("version-hint").textContent = `LUMORA Bridge v${state.appVersion}`;
     const watchBtn = $("watch-btn");
     watchBtn.textContent = state.watcherActive ? "Stop watching" : "Start watching";
@@ -39,7 +41,8 @@
     const logs = $("logs");
     const div = document.createElement("div");
     div.className = line.level;
-    const time = line.ts.slice(11, 19);
+    const date = new Date(line.ts);
+    const time = date.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
     div.textContent = `${time}  ${line.message}`;
     logs.appendChild(div);
     while (logs.childElementCount > 400) logs.firstElementChild?.remove();
@@ -66,6 +69,10 @@
   });
   $("folder-btn").addEventListener("click", async () => {
     await api.selectFolder();
+    render(await api.getState());
+  });
+  $("output-folder-btn").addEventListener("click", async () => {
+    await api.selectOutputFolder();
     render(await api.getState());
   });
   $("watch-btn").addEventListener("click", async () => {

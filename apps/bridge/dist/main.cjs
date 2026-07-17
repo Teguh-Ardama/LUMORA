@@ -5,6 +5,10 @@ var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __getProtoOf = Object.getPrototypeOf;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
 var __copyProps = (to, from, except, desc) => {
   if (from && typeof from === "object" || typeof from === "function") {
     for (let key of __getOwnPropNames(from))
@@ -21,11 +25,17 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
   isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
   mod
 ));
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
 // src/main/index.ts
+var main_exports = {};
+__export(main_exports, {
+  broadcastState: () => broadcastState
+});
+module.exports = __toCommonJS(main_exports);
 var import_electron3 = require("electron");
 var import_node_os = __toESM(require("os"));
-var import_node_path3 = __toESM(require("path"));
+var import_node_path4 = __toESM(require("path"));
 
 // src/shared/ipc-contract.ts
 var IpcChannel = {
@@ -33,6 +43,7 @@ var IpcChannel = {
   PAIR: "bridge:pair",
   UNPAIR: "bridge:unpair",
   SELECT_FOLDER: "bridge:select-folder",
+  SELECT_OUTPUT_FOLDER: "bridge:select-output-folder",
   SET_WATCHER: "bridge:set-watcher",
   STATE_CHANGED: "bridge:state-changed",
   LOG: "bridge:log"
@@ -48,7 +59,8 @@ var DEFAULTS = {
   deviceId: null,
   eventId: null,
   eventName: null,
-  watchFolder: null
+  watchFolder: null,
+  outputFolder: null
 };
 var ConfigStore = class {
   filePath = import_node_path.default.join(import_electron.app.getPath("userData"), "bridge-config.json");
@@ -691,8 +703,8 @@ function getErrorMap() {
   return overrideErrorMap;
 }
 var makeIssue = (params) => {
-  const { data, path: path4, errorMaps, issueData } = params;
-  const fullPath = [...path4, ...issueData.path || []];
+  const { data, path: path5, errorMaps, issueData } = params;
+  const fullPath = [...path5, ...issueData.path || []];
   const fullIssue = {
     ...issueData,
     path: fullPath
@@ -817,11 +829,11 @@ var errorUtil;
 var _ZodEnum_cache;
 var _ZodNativeEnum_cache;
 var ParseInputLazyPath = class {
-  constructor(parent, value, path4, key) {
+  constructor(parent, value, path5, key) {
     this._cachedPath = [];
     this.parent = parent;
     this.data = value;
-    this._path = path4;
+    this._path = path5;
     this._key = key;
   }
   get path() {
@@ -4839,6 +4851,129 @@ var TetherWatcher = class {
   }
 };
 
+// src/main/downloader.ts
+var import_promises2 = __toESM(require("fs/promises"));
+var import_node_path3 = __toESM(require("path"));
+var import_node_https = __toESM(require("https"));
+var import_node_http = __toESM(require("http"));
+var downloadedCount = 0;
+function getDownloadedCount() {
+  return downloadedCount;
+}
+async function downloadComposedPhoto(url, sessionId) {
+  const { outputFolder } = getConfigStore().get();
+  if (!outputFolder) {
+    blog.warn(`Output folder not set. Skipping download for session ${sessionId.slice(0, 8)}`);
+    return;
+  }
+  try {
+    await import_promises2.default.mkdir(outputFolder, { recursive: true });
+  } catch (err) {
+    throw new Error(`Cannot access output folder: ${outputFolder}`);
+  }
+  const fileName = `LUMORA_${sessionId.slice(0, 8)}.jpg`;
+  const destPath = import_node_path3.default.join(outputFolder, fileName);
+  return new Promise((resolve, reject) => {
+    const client = url.startsWith("https") ? import_node_https.default : import_node_http.default;
+    client.get(url, (res) => {
+      if (res.statusCode !== 200) {
+        return reject(new Error(`Failed to fetch photo, status code: ${res.statusCode}`));
+      }
+      const fileStream = require("fs").createWriteStream(destPath);
+      res.pipe(fileStream);
+      fileStream.on("finish", () => {
+        fileStream.close();
+        downloadedCount++;
+        blog.info(`Downloaded masterpiece: ${fileName}`);
+        broadcastState();
+        resolve();
+      });
+      fileStream.on("error", (err) => {
+        require("fs").unlink(destPath, () => {
+        });
+        reject(err);
+      });
+    }).on("error", (err) => {
+      reject(err);
+    });
+  });
+}
+
+// src/main/stream.ts
+var abortController = null;
+var retryTimeout = null;
+var isConnected = false;
+function startRealtimeStream() {
+  if (abortController) return;
+  const cfg = getConfigStore().get();
+  const { apiUrl, deviceToken, eventId } = cfg;
+  if (!apiUrl || !deviceToken || !eventId) return;
+  abortController = new AbortController();
+  const url = `${apiUrl}/api/bridge/stream`;
+  blog.info("Connecting to realtime stream...");
+  fetch(url, {
+    headers: { Authorization: `Bearer ${deviceToken}` },
+    signal: abortController.signal
+  }).then(async (res) => {
+    if (!res.ok) {
+      throw new Error(`Stream rejected with status ${res.status}`);
+    }
+    if (!isConnected) {
+      isConnected = true;
+      blog.info("Realtime stream connected");
+    }
+    if (!res.body) throw new Error("No body in response");
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer2 = "";
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer2 += decoder.decode(value, { stream: true });
+      const lines = buffer2.split("\n\n");
+      buffer2 = lines.pop() ?? "";
+      for (const block of lines) {
+        let eventType = "message";
+        let data = "";
+        for (const line of block.split("\n")) {
+          if (line.startsWith("event: ")) eventType = line.slice(7);
+          else if (line.startsWith("data: ")) data = line.slice(6);
+        }
+        if (eventType === "session.status" && data) {
+          try {
+            const payload = JSON.parse(data);
+            if (payload.status === "READY" && payload.composedUrl) {
+              blog.info(`Session ${payload.sessionId.slice(0, 8)} is READY. Downloading...`);
+              downloadComposedPhoto(payload.composedUrl, payload.sessionId).catch((err) => blog.error(`Download failed: ${err.message}`));
+            }
+          } catch (err) {
+            blog.warn("Failed to parse session.status event");
+          }
+        }
+      }
+    }
+    throw new Error("Stream ended unexpectedly");
+  }).catch((err) => {
+    if (err.name === "AbortError") {
+      blog.info("Realtime stream closed");
+      return;
+    }
+    blog.warn(`Realtime stream error: ${err.message}. Retrying in 5s...`);
+    isConnected = false;
+    abortController = null;
+    retryTimeout = setTimeout(() => startRealtimeStream(), 5e3);
+  });
+}
+function stopRealtimeStream() {
+  if (retryTimeout) clearTimeout(retryTimeout);
+  retryTimeout = null;
+  if (abortController) {
+    abortController.abort();
+    abortController = null;
+  }
+  isConnected = false;
+}
+
 // src/main/index.ts
 var HEARTBEAT_INTERVAL_MS = 15e3;
 var win2 = null;
@@ -4856,11 +4991,13 @@ function currentState() {
     paired: Boolean(cfg.deviceToken),
     eventName: cfg.eventName,
     watchFolder: cfg.watchFolder,
+    outputFolder: cfg.outputFolder,
     watcherActive,
     online,
     queueDepth: queue?.depth ?? 0,
     activeSessionId: activeSession?.id ?? null,
     uploadedCount: queue?.uploadedCount ?? 0,
+    downloadedCount: getDownloadedCount(),
     lastUploadAt: queue?.lastUploadAt ?? null,
     appVersion: import_electron3.app.getVersion()
   };
@@ -4923,8 +5060,9 @@ function wireIpc() {
         eventId: result.eventId,
         eventName: result.eventName
       });
-      blog.info(`Paired with event "${result.eventName}"`);
       startHeartbeat();
+      startRealtimeStream();
+      blog.info(`Paired with event "${result.eventName}"`);
       broadcastState();
       return { ok: true };
     } catch (err) {
@@ -4939,6 +5077,7 @@ function wireIpc() {
     getConfigStore().clear();
     online = false;
     activeSession = null;
+    stopRealtimeStream();
     blog.info("Unpaired \u2014 configuration cleared");
     broadcastState();
   });
@@ -4953,6 +5092,20 @@ function wireIpc() {
       getConfigStore().set({ watchFolder: folder });
       blog.info(`Tether folder set: ${folder}`);
       if (watcherActive) watcher.start(folder);
+      broadcastState();
+    }
+    return folder;
+  });
+  import_electron3.ipcMain.handle(IpcChannel.SELECT_OUTPUT_FOLDER, async () => {
+    if (!win2) return null;
+    const result = await import_electron3.dialog.showOpenDialog(win2, {
+      title: "Select Output Folder for Prints",
+      properties: ["openDirectory"]
+    });
+    const folder = result.filePaths[0] ?? null;
+    if (folder) {
+      getConfigStore().set({ outputFolder: folder });
+      blog.info(`Output folder set: ${folder}`);
       broadcastState();
     }
     return folder;
@@ -4980,13 +5133,13 @@ function createWindow() {
     title: "LUMORA Bridge",
     backgroundColor: "#101014",
     webPreferences: {
-      preload: import_node_path3.default.join(__dirname, "preload.cjs"),
+      preload: import_node_path4.default.join(__dirname, "preload.cjs"),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false
     }
   });
-  void win2.loadFile(import_node_path3.default.join(__dirname, "..", "static", "index.html"));
+  void win2.loadFile(import_node_path4.default.join(__dirname, "..", "static", "index.html"));
   attachLogWindow(win2);
   win2.on("closed", () => {
     win2 = null;
@@ -5008,7 +5161,10 @@ void import_electron3.app.whenReady().then(() => {
   });
   wireIpc();
   createWindow();
-  if (getConfigStore().get().deviceToken) startHeartbeat();
+  if (getConfigStore().get().deviceToken) {
+    startHeartbeat();
+    startRealtimeStream();
+  }
   import_electron3.app.on("activate", () => {
     if (import_electron3.BrowserWindow.getAllWindows().length === 0) createWindow();
   });
@@ -5027,4 +5183,8 @@ import_electron3.app.on("window-all-closed", () => {
       import_electron3.app.quit();
     }
   }
+});
+// Annotate the CommonJS export names for ESM import in node:
+0 && (module.exports = {
+  broadcastState
 });

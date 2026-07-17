@@ -7,17 +7,20 @@ export interface BridgeConfig {
   eventId: string | null;
   eventName: string | null;
   watchFolder: string | null;
+  outputFolder: string | null;
 }
 
 export interface BridgeState {
   paired: boolean;
   eventName: string | null;
   watchFolder: string | null;
+  outputFolder: string | null;
   watcherActive: boolean;
   online: boolean;
   queueDepth: number;
   activeSessionId: string | null;
   uploadedCount: number;
+  downloadedCount: number;
   lastUploadAt: string | null;
   appVersion: string;
 }
@@ -33,6 +36,7 @@ export const IpcChannel = {
   PAIR: "bridge:pair",
   UNPAIR: "bridge:unpair",
   SELECT_FOLDER: "bridge:select-folder",
+  SELECT_OUTPUT_FOLDER: "bridge:select-output-folder",
   SET_WATCHER: "bridge:set-watcher",
   STATE_CHANGED: "bridge:state-changed",
   LOG: "bridge:log",
@@ -49,6 +53,7 @@ export interface BridgeRendererApi {
   pair(req: PairRequest): Promise<{ ok: boolean; error?: string }>;
   unpair(): Promise<void>;
   selectFolder(): Promise<string | null>;
+  selectOutputFolder(): Promise<string | null>;
   setWatcher(active: boolean): Promise<void>;
   onStateChanged(cb: (state: BridgeState) => void): void;
   onLog(cb: (line: LogLine) => void): void;

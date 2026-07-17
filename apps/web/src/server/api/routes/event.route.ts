@@ -117,6 +117,7 @@ export const eventRoute = new Hono<ApiEnv>()
     });
     if (!event) throw notFound();
     const devices = await bridgeDeviceRepo.listForEvent(id);
+    console.log("EVENT RESPONSE IN BACKEND:", { id: event.id, eventKey: event.eventKey });
     return ok(c, {
       event: {
         ...event,
