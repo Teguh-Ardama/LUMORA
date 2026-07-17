@@ -6,6 +6,7 @@ import path from "node:path";
 import { compressToTarget } from "@lumora/image/server";
 import { PHOTO_MIN_LONG_EDGE, PHOTO_TARGET_MAX_BYTES } from "@lumora/contracts";
 import { bridgeApi, BridgeApiError } from "./api-client";
+import { getConfigStore } from "./config-store";
 import { blog } from "./logger";
 
 interface QueueItem {
@@ -111,7 +112,12 @@ export class OfflineQueue {
 
           // 2. Upload to S3/MinIO
           if (presignRes.uploadUrl) {
-            const uploadRes = await fetch(presignRes.uploadUrl, {
+            const apiUrl = getConfigStore().get().apiUrl?.replace(/\/$/, "") ?? "";
+            const finalUrl = presignRes.uploadUrl.startsWith("/")
+              ? `${apiUrl}${presignRes.uploadUrl}`
+              : presignRes.uploadUrl;
+
+            const uploadRes = await fetch(finalUrl, {
               method: "PUT",
               body: compressed.buffer,
               headers: { "Content-Type": "image/jpeg" },

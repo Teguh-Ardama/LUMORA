@@ -14,3 +14,4 @@ export * from "./audit";
 export * from "./realtime";
 export * from "./analytics";
 export * from "./billing";
+export * from "./guest";

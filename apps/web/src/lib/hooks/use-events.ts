@@ -42,6 +42,7 @@ export function useEvent(id: string) {
 
 export interface EventDetail {
   id: string;
+  eventKey: string;
   name: string;
   clientName: string | null;
   venue: string | null;

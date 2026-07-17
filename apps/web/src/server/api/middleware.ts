@@ -51,7 +51,7 @@ export function clientIp(c: Context): string {
 // ── CSRF / origin protection (cookie-authed routes) ──────────────────────
 
 /** Signature-authenticated endpoints (gateway webhooks) — no cookies involved. */
-const CSRF_EXEMPT_PATHS = new Set(["/api/billing/webhook"]);
+const CSRF_EXEMPT_PATHS = new Set(["/api/billing/webhook", "/api/bridge/pair"]);
 
 export const csrfProtection: MiddlewareHandler = async (c, next) => {
   const method = c.req.method.toUpperCase();

@@ -154,24 +154,46 @@ var bridgeApi = {
     });
     return parse(res);
   },
-  async uploadPhoto(input) {
+  async presignPhoto(input) {
     const cfg = getConfigStore().get();
     if (!cfg.apiUrl || !cfg.deviceToken) throw new BridgeApiError(401, "Not paired");
-    const form = new FormData();
-    form.set("file", new Blob([new Uint8Array(input.buffer)], { type: "image/jpeg" }), input.filename);
-    if (input.sessionId) form.set("sessionId", input.sessionId);
-    if (input.sequence !== null) form.set("sequence", String(input.sequence));
-    form.set("idempotencyKey", input.idempotencyKey);
-    form.set("originalFilename", input.filename);
-    form.set("capturedAt", (/* @__PURE__ */ new Date()).toISOString());
-    const res = await fetch(`${cfg.apiUrl}/api/bridge/photos`, {
+    const res = await fetch(`${cfg.apiUrl}/api/bridge/photos/presign`, {
       method: "POST",
-      headers: { Authorization: `Bearer ${cfg.deviceToken}` },
-      body: form
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${cfg.deviceToken}`
+      },
+      body: JSON.stringify({
+        idempotencyKey: input.idempotencyKey,
+        originalFilename: input.filename
+      })
+    });
+    return parse(res);
+  },
+  async confirmPhoto(input) {
+    const cfg = getConfigStore().get();
+    if (!cfg.apiUrl || !cfg.deviceToken) throw new BridgeApiError(401, "Not paired");
+    const res = await fetch(`${cfg.apiUrl}/api/bridge/photos/confirm`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${cfg.deviceToken}`
+      },
+      body: JSON.stringify({
+        photoId: input.photoId,
+        idempotencyKey: input.idempotencyKey,
+        originalFilename: input.filename,
+        sessionId: input.sessionId ?? void 0,
+        sequence: input.sequence ?? void 0,
+        capturedAt: (/* @__PURE__ */ new Date()).toISOString(),
+        width: input.width,
+        height: input.height,
+        sizeBytes: input.sizeBytes
+      })
     });
     const data = await parse(res);
     if (data.quarantined) {
-      blog.warn(`Uploaded ${input.filename} but no session was capturing \u2014 photo quarantined`);
+      blog.warn(`Confirmed ${input.filename} but no session was capturing \u2014 photo quarantined`);
     }
     return data;
   }
@@ -4593,13 +4615,20 @@ var bridgeHeartbeatSchema = z.object({
   watchedFolder: z.string().max(500).nullish(),
   lastUploadAt: z.coerce.date().nullish()
 });
-var bridgeUploadFieldsSchema = z.object({
-  /** Active session as known by the bridge; empty -> quarantine. */
-  sessionId: uuidSchema.optional(),
-  sequence: z.coerce.number().int().min(0).max(11).optional(),
+var bridgePresignSchema = z.object({
+  idempotencyKey: z.string().min(8).max(128),
+  originalFilename: z.string().max(255)
+});
+var bridgeConfirmSchema = z.object({
+  photoId: uuidSchema,
   idempotencyKey: z.string().min(8).max(128),
   originalFilename: z.string().max(255),
-  capturedAt: z.coerce.date().optional()
+  sessionId: uuidSchema.optional(),
+  sequence: z.coerce.number().int().min(0).max(11).optional(),
+  capturedAt: z.coerce.date().optional(),
+  width: z.number().int().min(1),
+  height: z.number().int().min(1),
+  sizeBytes: z.number().int().min(1)
 });
 
 // ../../packages/contracts/src/audit.ts
@@ -4623,6 +4652,11 @@ var TOPUP_MIN_IDR = 1e4;
 var TOPUP_MAX_IDR = 5e7;
 var createTopupSchema = z.object({
   amount: z.number().int().min(TOPUP_MIN_IDR, `Minimum top-up is Rp${TOPUP_MIN_IDR.toLocaleString("id-ID")}`).max(TOPUP_MAX_IDR)
+});
+
+// ../../packages/contracts/src/guest.ts
+var verifyEventPinSchema = z.object({
+  pin: z.string().trim().min(1, "PIN is required").max(20)
 });
 
 // ../../packages/image/src/server/compose.ts
@@ -4697,12 +4731,31 @@ var OfflineQueue = class {
             minLongEdge: PHOTO_MIN_LONG_EDGE,
             maxLongEdge: 2400
           });
-          await bridgeApi.uploadPhoto({
-            buffer: compressed.buffer,
+          const presignRes = await bridgeApi.presignPhoto({
+            filename: item.filename,
+            idempotencyKey: item.idempotencyKey
+          });
+          if (presignRes.uploadUrl) {
+            const apiUrl = getConfigStore().get().apiUrl?.replace(/\/$/, "") ?? "";
+            const finalUrl = presignRes.uploadUrl.startsWith("/") ? `${apiUrl}${presignRes.uploadUrl}` : presignRes.uploadUrl;
+            const uploadRes = await fetch(finalUrl, {
+              method: "PUT",
+              body: compressed.buffer,
+              headers: { "Content-Type": "image/jpeg" }
+            });
+            if (!uploadRes.ok) {
+              throw new Error(`S3 upload failed: ${uploadRes.statusText}`);
+            }
+          }
+          await bridgeApi.confirmPhoto({
+            photoId: presignRes.photoId,
+            idempotencyKey: presignRes.idempotencyKey,
             filename: item.filename,
             sessionId: item.sessionId,
             sequence: item.sequence,
-            idempotencyKey: item.idempotencyKey
+            width: compressed.width,
+            height: compressed.height,
+            sizeBytes: compressed.buffer.length
           });
           this.items.shift();
           this.uploadedCount += 1;

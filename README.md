@@ -72,7 +72,18 @@ pnpm --filter @lumora/web dev
 
 # Run worker only
 pnpm --filter @lumora/worker dev
+
+# Run Lumora Bridge (Desktop App)
+pnpm --filter @lumora/bridge dev
 ```
+
+### 5. DSLR & Bridge Workflow
+
+1. **Local Hot Folder:** The Lumora Bridge app watches a local folder on your computer. You can change this folder per event simply by clicking "Choose folder..." in the Bridge UI.
+2. **Camera Setup:** Connect your DSLR via tethering software (like EOS Utility) and set it to auto-download photos directly into the folder you selected in Bridge.
+3. **Raw Uploads & Temporary Storage:** When the DSLR shoots, Bridge detects the Raw/JPG file, compresses it locally, and uploads it to S3 (MinIO) as temporary high-res storage.
+4. **Session Linking:** If there is an active session running in the Operator Console, the photo is linked to it. If not, it is "Quarantined" (ignored).
+5. **Composing:** Once 4 photos are captured, the `@lumora/worker` running in the cloud takes the 4 raw photos from S3, stitches them into a final layout with borders/filters, and saves the final masterpiece back to S3. This final composition is what guests see in the Web Gallery.
 
 ## Workspaces
 

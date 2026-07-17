@@ -116,6 +116,11 @@ export default function EventDetailPage() {
             <Button variant="outline" onClick={() => setPairingOpen(true)}>
               <Plug /> Pair Bridge
             </Button>
+            <Button variant="outline" asChild>
+              <Link href={`/gallery/${event.eventKey}`} target="_blank">
+                Guest Gallery
+              </Link>
+            </Button>
             <Button asChild>
               <Link href={`/operator/${event.id}`}>
                 <Camera /> Operator Console

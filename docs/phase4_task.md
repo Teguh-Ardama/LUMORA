@@ -1,0 +1,21 @@
+- `[x]` **Phase 1: Fondasi Backend & Storage (Web Cloud)**
+  - `[x]` Setup Database PostgreSQL (Prisma ORM) & Redis
+  - `[x]` Buat API Endpoint Inti: Autentikasi Admin, Generate Event Key
+  - `[x]` Setup MinIO Object Storage & buat fungsi API generate Presigned URL
+  - `[x]` Uji coba (Test Case) migrasi DB dan Seed Data (Selesai)
+- `[x]` **Phase 2: Lumora Bridge Core (Local Desktop App)**
+  - `[x]` Gunakan arsitektur Electron yang sudah ada (Tauri dibatalkan karena blokir OS AppLocker pada Rust `cargo.exe`)
+  - `[x]` Uji coba *File Watcher Service* (Hot Folder) dengan `chokidar`
+  - `[x]` Uji coba *Offline Queue* (Local JSON Journaling + Retry Backoff)
+  - `[x]` Uji coba integrasi *Image Processing* lokal (`sharp` compressor)
+  - `[x]` Bangun *Background Sync Worker*
+- `[x]` **Phase 3: Web Dashboard (Admin Panel)**
+  - `[x]` UI/UX Halaman Login & Manajemen Event
+  - `[x]` Sistem *Pairing Code* untuk mendaftarkan Bridge App
+  - `[x]` Integrasi *Analytics* & Grafik
+  - `[x]` CRUD Pengaturan Template & Border
+- `[x]` **Phase 4: Guest Web Gallery**
+  - `[x]` Halaman galeri *mobile-first* (`/gallery/[eventKey]`)
+  - `[x]` Sistem validasi PIN *Event* (API & Cookie JWT)
+  - `[x]` Implementasi *Live Photo Grid* dengan React Query polling
+  - `[x]` Fungsionalitas Download Analytics & Rate Limiting
