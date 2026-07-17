@@ -65,32 +65,61 @@ export const bridgeApi = {
     return parse<{ activeSession: { id: string; photoCount: number; framesPerSession: number } | null }>(res);
   },
 
-  async uploadPhoto(input: {
-    buffer: Buffer;
+  async presignPhoto(input: {
     filename: string;
-    sessionId: string | null;
-    sequence: number | null;
     idempotencyKey: string;
   }) {
     const cfg = getConfigStore().get();
     if (!cfg.apiUrl || !cfg.deviceToken) throw new BridgeApiError(401, "Not paired");
 
-    const form = new FormData();
-    form.set("file", new Blob([new Uint8Array(input.buffer)], { type: "image/jpeg" }), input.filename);
-    if (input.sessionId) form.set("sessionId", input.sessionId);
-    if (input.sequence !== null) form.set("sequence", String(input.sequence));
-    form.set("idempotencyKey", input.idempotencyKey);
-    form.set("originalFilename", input.filename);
-    form.set("capturedAt", new Date().toISOString());
-
-    const res = await fetch(`${cfg.apiUrl}/api/bridge/photos`, {
+    const res = await fetch(`${cfg.apiUrl}/api/bridge/photos/presign`, {
       method: "POST",
-      headers: { Authorization: `Bearer ${cfg.deviceToken}` },
-      body: form,
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${cfg.deviceToken}`,
+      },
+      body: JSON.stringify({
+        idempotencyKey: input.idempotencyKey,
+        originalFilename: input.filename,
+      }),
+    });
+    return parse<{ uploadUrl: string; photoId: string; idempotencyKey: string }>(res);
+  },
+
+  async confirmPhoto(input: {
+    photoId: string;
+    idempotencyKey: string;
+    filename: string;
+    sessionId: string | null;
+    sequence: number | null;
+    width: number;
+    height: number;
+    sizeBytes: number;
+  }) {
+    const cfg = getConfigStore().get();
+    if (!cfg.apiUrl || !cfg.deviceToken) throw new BridgeApiError(401, "Not paired");
+
+    const res = await fetch(`${cfg.apiUrl}/api/bridge/photos/confirm`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${cfg.deviceToken}`,
+      },
+      body: JSON.stringify({
+        photoId: input.photoId,
+        idempotencyKey: input.idempotencyKey,
+        originalFilename: input.filename,
+        sessionId: input.sessionId,
+        sequence: input.sequence,
+        capturedAt: new Date().toISOString(),
+        width: input.width,
+        height: input.height,
+        sizeBytes: input.sizeBytes,
+      }),
     });
     const data = await parse<{ photoId: string; quarantined: boolean }>(res);
     if (data.quarantined) {
-      blog.warn(`Uploaded ${input.filename} but no session was capturing — photo quarantined`);
+      blog.warn(`Confirmed ${input.filename} but no session was capturing — photo quarantined`);
     }
     return data;
   },

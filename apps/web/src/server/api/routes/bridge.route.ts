@@ -5,7 +5,8 @@ import {
   ApiErrorCode,
   Permission,
   bridgeHeartbeatSchema,
-  bridgeUploadFieldsSchema,
+  bridgePresignSchema,
+  bridgeConfirmSchema,
   pairBridgeSchema,
 } from "@lumora/contracts";
 import { bridgeService } from "../../services/bridge.service";
@@ -29,27 +30,28 @@ export const bridgeRoute = new Hono<ApiEnv>()
   })
 
   .post(
-    "/photos",
+    "/photos/presign",
     requireBridge,
-    rateLimitBy("bridge-upload", 240, 60, (c) => c.get("bridgeDevice").id),
+    rateLimitBy("bridge-upload-presign", 240, 60, (c) => c.get("bridgeDevice").id),
+    zValidator("json", bridgePresignSchema),
     async (c) => {
       const device = c.get("bridgeDevice");
-      const body = await c.req.parseBody();
-      const file = body["file"];
-      if (!(file instanceof File)) throw new ApiError(ApiErrorCode.VALIDATION, "Photo file is required", 422);
-      const fields = bridgeUploadFieldsSchema.parse({
-        sessionId: body["sessionId"] || undefined,
-        sequence: body["sequence"] || undefined,
-        idempotencyKey: body["idempotencyKey"],
-        originalFilename: body["originalFilename"] ?? file.name,
-        capturedAt: body["capturedAt"] || undefined,
-      });
-      const result = await bridgeService.uploadPhoto(
-        device,
-        { buffer: Buffer.from(await file.arrayBuffer()), mime: file.type || "image/jpeg" },
-        fields,
-      );
-      return ok(c, { photoId: result.photo.id, quarantined: result.quarantined }, 201);
+      const input = c.req.valid("json");
+      const result = await bridgeService.presignPhoto(device, input);
+      return ok(c, result, 201);
+    },
+  )
+
+  .post(
+    "/photos/confirm",
+    requireBridge,
+    rateLimitBy("bridge-upload-confirm", 240, 60, (c) => c.get("bridgeDevice").id),
+    zValidator("json", bridgeConfirmSchema),
+    async (c) => {
+      const device = c.get("bridgeDevice");
+      const input = c.req.valid("json");
+      const result = await bridgeService.confirmPhoto(device, input);
+      return ok(c, result, 201);
     },
   );
 

@@ -103,12 +103,34 @@ export class OfflineQueue {
             minLongEdge: PHOTO_MIN_LONG_EDGE,
             maxLongEdge: 2400,
           });
-          await bridgeApi.uploadPhoto({
-            buffer: compressed.buffer,
+          // 1. Presign
+          const presignRes = await bridgeApi.presignPhoto({
+            filename: item.filename,
+            idempotencyKey: item.idempotencyKey,
+          });
+
+          // 2. Upload to S3/MinIO
+          if (presignRes.uploadUrl) {
+            const uploadRes = await fetch(presignRes.uploadUrl, {
+              method: "PUT",
+              body: compressed.buffer,
+              headers: { "Content-Type": "image/jpeg" },
+            });
+            if (!uploadRes.ok) {
+              throw new Error(`S3 upload failed: ${uploadRes.statusText}`);
+            }
+          }
+
+          // 3. Confirm to DB
+          await bridgeApi.confirmPhoto({
+            photoId: presignRes.photoId,
+            idempotencyKey: presignRes.idempotencyKey,
             filename: item.filename,
             sessionId: item.sessionId,
             sequence: item.sequence,
-            idempotencyKey: item.idempotencyKey,
+            width: compressed.width,
+            height: compressed.height,
+            sizeBytes: compressed.buffer.length,
           });
           this.items.shift();
           this.uploadedCount += 1;

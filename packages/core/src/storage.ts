@@ -26,6 +26,7 @@ export interface StorageDriver {
   putObject(args: { key: string; body: Buffer; contentType?: string }): Promise<void>;
   getObject(key: string): Promise<Buffer>;
   getSignedUrl(key: string, ttlSeconds: number): Promise<string>;
+  getSignedUploadUrl(key: string, contentType: string): Promise<string>;
   deleteObject(key: string): Promise<void>;
 }
 
@@ -57,6 +58,11 @@ class LocalStorageDriver implements StorageDriver {
   async getSignedUrl(key: string, _ttlSeconds: number): Promise<string> {
     // For local dev, return a route served by the Next.js API handler
     return `/api/gallery/files?key=${encodeURIComponent(key)}`;
+  }
+
+  async getSignedUploadUrl(key: string, _contentType: string): Promise<string> {
+    // For local dev, the app will upload to a dedicated local API endpoint
+    return `/api/storage/upload?key=${encodeURIComponent(key)}`;
   }
 
   async deleteObject(key: string): Promise<void> {
@@ -109,6 +115,19 @@ class SupabaseStorageDriver implements StorageDriver {
     if (error) {
       log.error("Supabase signed URL error", { error, key });
       throw new Error(`Storage signed URL failed: ${error.message}`);
+    }
+
+    return data.signedUrl;
+  }
+
+  async getSignedUploadUrl(key: string, _contentType: string): Promise<string> {
+    const { data, error } = await this.client.storage
+      .from(this.bucket)
+      .createSignedUploadUrl(key);
+
+    if (error) {
+      log.error("Supabase signed upload URL error", { error, key });
+      throw new Error(`Storage signed upload URL failed: ${error.message}`);
     }
 
     return data.signedUrl;

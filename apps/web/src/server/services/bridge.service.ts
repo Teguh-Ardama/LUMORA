@@ -5,7 +5,8 @@ import {
   PHOTO_UPLOAD_MAX_BYTES,
   eventChannel,
   type BridgeHeartbeatInput,
-  type BridgeUploadFields,
+  type BridgePresignInput,
+  type BridgeConfirmInput,
   type PairBridgeInput,
   type PairBridgeResult,
   type SessionUser,
@@ -20,7 +21,6 @@ import {
   signBridgeToken,
   storageKeys,
 } from "@lumora/core";
-import { inspectImage } from "@lumora/image/server";
 import { auditRepo, bridgeDeviceRepo, photoRepo, prisma, sessionRepo, type BridgeDevice } from "@lumora/db";
 
 const PAIRING_TTL_SECONDS = 10 * 60;
@@ -118,32 +118,38 @@ export const bridgeService = {
   },
 
   /**
-   * DSLR photo intake. Photos that arrive without a CAPTURING bridge
-   * session are QUARANTINED, not dropped — cameras fire when they fire.
+   * Phase 1: Bridge asks for a presigned upload URL.
+   * If an idempotency key matches an already uploaded/quarantined photo, we return the existing URL (or just skip).
    */
-  async uploadPhoto(
-    device: BridgeDevice,
-    file: { buffer: Buffer; mime: string },
-    fields: BridgeUploadFields,
-  ) {
-    if (file.buffer.length > PHOTO_UPLOAD_MAX_BYTES) {
-      throw new ApiError(ApiErrorCode.PAYLOAD_TOO_LARGE, "Photo exceeds the maximum upload size", 413);
-    }
-    if (!ALLOWED_PHOTO_MIME.includes(file.mime as (typeof ALLOWED_PHOTO_MIME)[number])) {
-      throw new ApiError(ApiErrorCode.VALIDATION, "Unsupported content type", 422);
+  async presignPhoto(device: BridgeDevice, input: BridgePresignInput) {
+    const duplicate = await photoRepo.findByIdempotencyKey(device.eventId, input.idempotencyKey);
+    if (duplicate) {
+      // Already processed. Return early.
+      return { uploadUrl: "", photoId: duplicate.id, idempotencyKey: input.idempotencyKey };
     }
 
-    const duplicate = await photoRepo.findByIdempotencyKey(device.eventId, fields.idempotencyKey);
-    if (duplicate) return { photo: duplicate, quarantined: duplicate.status === "QUARANTINED" };
+    const photoId = crypto.randomUUID();
+    const key = storageKeys.rawPhoto(device.organizationId, device.eventId, photoId);
+    
+    // Generate a 1-hour presigned PUT URL
+    const uploadUrl = await getStorage().getSignedUploadUrl(key, "image/jpeg");
 
-    const info = await inspectImage(file.buffer).catch(() => {
-      throw new ApiError(ApiErrorCode.VALIDATION, "File is not a valid image", 422);
-    });
+    return { uploadUrl, photoId, idempotencyKey: input.idempotencyKey };
+  },
+
+  /**
+   * Phase 2: Bridge confirms the file was successfully uploaded to the S3 bucket.
+   * We now create the database record and trigger the SSE realtime events.
+   */
+  async confirmPhoto(device: BridgeDevice, input: BridgeConfirmInput) {
+    const duplicate = await photoRepo.findByIdempotencyKey(device.eventId, input.idempotencyKey);
+    if (duplicate) return { photoId: duplicate.id, quarantined: duplicate.status === "QUARANTINED" };
 
     let sessionId: string | null = null;
-    let sequence = fields.sequence ?? 0;
-    if (fields.sessionId) {
-      const session = await sessionRepo.findById(fields.sessionId);
+    let sequence = input.sequence ?? 0;
+    
+    if (input.sessionId) {
+      const session = await sessionRepo.findById(input.sessionId);
       if (
         session &&
         session.eventId === device.eventId &&
@@ -151,16 +157,14 @@ export const bridgeService = {
         session.captureSource === "BRIDGE"
       ) {
         sessionId = session.id;
-        if (fields.sequence === undefined) sequence = session.photos.length;
+        if (input.sequence === undefined) sequence = session.photos.length;
       }
     }
 
-    const photoId = crypto.randomUUID();
-    const key = storageKeys.rawPhoto(device.organizationId, device.eventId, photoId);
-    await getStorage().putObject({ key, body: file.buffer, contentType: "image/jpeg" });
+    const key = storageKeys.rawPhoto(device.organizationId, device.eventId, input.photoId);
 
     const photo = await photoRepo.create({
-      id: photoId,
+      id: input.photoId,
       organizationId: device.organizationId,
       eventId: device.eventId,
       sessionId,
@@ -168,12 +172,12 @@ export const bridgeService = {
       source: "BRIDGE",
       status: sessionId ? "UPLOADED" : "QUARANTINED",
       storageKey: key,
-      width: info.width,
-      height: info.height,
-      sizeBytes: info.sizeBytes,
-      originalFilename: fields.originalFilename,
-      idempotencyKey: fields.idempotencyKey,
-      capturedAt: fields.capturedAt,
+      width: input.width,
+      height: input.height,
+      sizeBytes: input.sizeBytes,
+      originalFilename: input.originalFilename,
+      idempotencyKey: input.idempotencyKey,
+      capturedAt: input.capturedAt,
     });
 
     if (sessionId) {
@@ -192,7 +196,7 @@ export const bridgeService = {
       });
     }
 
-    return { photo, quarantined: !sessionId };
+    return { photoId: photo.id, quarantined: !sessionId };
   },
 
   async revoke(user: SessionUser, deviceId: string) {

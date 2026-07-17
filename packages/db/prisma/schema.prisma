@@ -245,6 +245,8 @@ model Event {
   clientName       String?     @map("client_name") @db.VarChar(160)
   venue            String?     @db.VarChar(200)
   status           EventStatus @default(DRAFT)
+  eventKey         String      @unique @default(cuid()) @map("event_key") @db.VarChar(32)
+  pinCode          String?     @map("pin_code") @db.VarChar(10)
   startsAt         DateTime    @map("starts_at")
   endsAt           DateTime    @map("ends_at")
   defaultBorderId  String?     @map("default_border_id") @db.Uuid

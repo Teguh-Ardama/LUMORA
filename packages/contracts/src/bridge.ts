@@ -44,13 +44,29 @@ export interface BridgeTokenClaims {
   type: "bridge";
 }
 
-/** Multipart fields for a bridge photo upload. */
-export const bridgeUploadFieldsSchema = z.object({
-  /** Active session as known by the bridge; empty -> quarantine. */
-  sessionId: uuidSchema.optional(),
-  sequence: z.coerce.number().int().min(0).max(11).optional(),
+/** Input for requesting a presigned upload URL. */
+export const bridgePresignSchema = z.object({
   idempotencyKey: z.string().min(8).max(128),
   originalFilename: z.string().max(255),
-  capturedAt: z.coerce.date().optional(),
 });
-export type BridgeUploadFields = z.infer<typeof bridgeUploadFieldsSchema>;
+export type BridgePresignInput = z.infer<typeof bridgePresignSchema>;
+
+export interface BridgePresignResult {
+  uploadUrl: string;
+  photoId: string;
+  idempotencyKey: string;
+}
+
+/** Input for confirming a successful upload. */
+export const bridgeConfirmSchema = z.object({
+  photoId: uuidSchema,
+  idempotencyKey: z.string().min(8).max(128),
+  originalFilename: z.string().max(255),
+  sessionId: uuidSchema.optional(),
+  sequence: z.coerce.number().int().min(0).max(11).optional(),
+  capturedAt: z.coerce.date().optional(),
+  width: z.number().int().min(1),
+  height: z.number().int().min(1),
+  sizeBytes: z.number().int().min(1),
+});
+export type BridgeConfirmInput = z.infer<typeof bridgeConfirmSchema>;
