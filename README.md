@@ -52,18 +52,19 @@ Ensure the `DATABASE_URL` and `REDIS_URL` match your Docker setup.
 ```bash
 pnpm install
 pnpm db:push
+pnpm --filter @lumora/db run db:generate
 pnpm db:seed
 ```
 
 ### 4. Run the Development Servers
 
-Start the Next.js web application and the background worker simultaneously:
+Start the Next.js web application and the background worker simultaneously in one terminal:
 
 ```bash
 pnpm dev
 ```
-- Web Application (Admin/Operator/Kiosk): `http://localhost:3000`
-- Worker: Runs in the background to process image composition and queues.
+- **Web Application** (Admin/Operator/Kiosk): `http://localhost:3000`
+- **Worker**: Runs in the background to process image composition and queues.
 
 *Alternatively, you can run them separately:*
 ```bash
@@ -72,18 +73,23 @@ pnpm --filter @lumora/web dev
 
 # Run worker only
 pnpm --filter @lumora/worker dev
+```
 
-# Run Lumora Bridge (Desktop App)
+### 5. Start LUMORA Bridge (Desktop App)
+
+To use the DSLR integration and auto-printing, you must run the Lumora Bridge Electron app. Open a **new terminal window**, navigate to the project root, and run:
+
+```bash
 pnpm --filter @lumora/bridge dev
 ```
 
-### 5. DSLR & Bridge Workflow
+### 6. DSLR & Bridge Workflow
 
-1. **Local Hot Folder:** The Lumora Bridge app watches a local folder on your computer. You can change this folder per event simply by clicking "Choose folder..." in the Bridge UI.
-2. **Camera Setup:** Connect your DSLR via tethering software (like EOS Utility) and set it to auto-download photos directly into the folder you selected in Bridge.
-3. **Raw Uploads & Temporary Storage:** When the DSLR shoots, Bridge detects the Raw/JPG file, compresses it locally, and uploads it to S3 (MinIO) as temporary high-res storage.
-4. **Session Linking:** If there is an active session running in the Operator Console, the photo is linked to it. If not, it is "Quarantined" (ignored).
-5. **Composing:** Once 4 photos are captured, the `@lumora/worker` running in the cloud takes the 4 raw photos from S3, stitches them into a final layout with borders/filters, and saves the final masterpiece back to S3. This final composition is what guests see in the Web Gallery.
+1. **Local Tether Folder (Input):** The Lumora Bridge app watches a local folder on your computer. Configure your DSLR tethering software (like EOS Utility) to auto-download photos directly into this folder. Click "Choose Tether…" in the Bridge UI to select it.
+2. **Raw Uploads & Temporary Storage:** When the DSLR shoots, Bridge detects the file, compresses it locally, and uploads it to S3 (MinIO) as temporary high-res storage.
+3. **Session Linking:** If there is an active session running in the Operator Console, the photo is linked to it. If not, it is sent to the "Quarantine Inbox" for manual matching.
+4. **Composing:** Once 4 photos are captured, the `@lumora/worker` running in the cloud pulls the 4 raw photos, stitches them into a final layout with borders/filters, and saves the masterpiece back to S3. This composition is what guests see in the Web Gallery.
+5. **Output Folder (Auto Download):** Bridge will automatically download the final composed 4R photo back to your computer. Click "Choose Output…" in the Bridge UI to select the folder where the DNP Printer is watching to print automatically.
 
 ## Workspaces
 
