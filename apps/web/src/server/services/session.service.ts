@@ -89,13 +89,7 @@ async function validateSessionConfig(
       throw badRequest("Filter not available for this organization");
   }
 
-  if (layoutCanvas && borderDims) {
-    const layoutIsLandscape = layoutCanvas.width >= layoutCanvas.height;
-    const borderIsLandscape = borderDims.width >= borderDims.height;
-    if (layoutIsLandscape !== borderIsLandscape) {
-      throw badRequest("Border orientation doesn't match the selected layout");
-    }
-  }
+  // Hapus validasi orientation border — composer engine handle warping
 }
 
 /** Serialize a session for API responses, with signed media URLs. */
@@ -224,7 +218,7 @@ export const sessionService = {
     user: SessionUser,
     sessionId: string,
     file: { buffer: Buffer; mime: string },
-    fields: { sequence: number; idempotencyKey: string; capturedAt?: Date; filterId?: string },
+    fields: { sequence: number; idempotencyKey: string; capturedAt?: Date },
   ) {
     const session = await sessionRepo.findByIdScoped(sessionId, user.organizationId);
     if (!session) throw new ApiError(ApiErrorCode.NOT_FOUND, "Session not found", 404);
@@ -260,7 +254,6 @@ export const sessionService = {
       sizeBytes: info.sizeBytes,
       idempotencyKey: fields.idempotencyKey,
       capturedAt: fields.capturedAt,
-      filterId: fields.filterId,
     });
 
     await publishRealtime(eventChannel(session.eventId), {
@@ -283,7 +276,7 @@ export const sessionService = {
     const session = await sessionRepo.findByIdScoped(sessionId, user.organizationId);
     if (!session) throw new ApiError(ApiErrorCode.NOT_FOUND, "Session not found", 404);
     if (session.status === "COMPOSING") return serializeSession(session);
-    if (session.status !== "CAPTURING" && session.status !== "FAILED") {
+    if (session.status !== "CAPTURING" && session.status !== "FAILED" && session.status !== "READY") {
       throw badRequest("Session cannot be composed in its current state");
     }
 
@@ -293,8 +286,10 @@ export const sessionService = {
       throw badRequest(`Layout "${session.layout.name}" needs ${needed} photos; only ${session.photos.length} captured`);
     }
 
-    const transitioned = await sessionRepo.transition(sessionId, ["CAPTURING", "FAILED"], "COMPOSING", {
+    const transitioned = await sessionRepo.transition(sessionId, ["CAPTURING", "FAILED", "READY"], "COMPOSING", {
       composeError: null,
+      composedKey: null,
+      composedAt: null,
     });
     if (!transitioned) throw badRequest("Session state changed, try again");
 

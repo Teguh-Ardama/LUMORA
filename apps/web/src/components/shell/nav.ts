@@ -38,7 +38,6 @@ export const NAV_SECTIONS: Array<{ title: string; items: NavItem[] }> = [
     title: "Library",
     items: [
       { label: "Asset Library", href: "/dashboard/library", icon: Library, permission: Permission.TEMPLATE_READ },
-      { label: "Templates", href: "/dashboard/templates", icon: Shapes, permission: Permission.TEMPLATE_READ },
       { label: "Gallery", href: "/dashboard/gallery", icon: Images, permission: Permission.GALLERY_READ },
       { label: "Downloads", href: "/dashboard/downloads", icon: Download, permission: Permission.GALLERY_DOWNLOAD },
     ],

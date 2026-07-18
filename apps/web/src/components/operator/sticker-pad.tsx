@@ -52,29 +52,34 @@ export const StickerPad = React.forwardRef<StickerPadRef, StickerPadProps>(
 
   // Calculate scaling factor to fit the preview container
   React.useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>;
     const updateScale = () => {
       if (!wrapperRef.current) return;
       const rect = wrapperRef.current.getBoundingClientRect();
       const padding = 32;
+      if (rect.width < 10) return; // still hidden, retry
       const scaleX = (rect.width - padding) / canvasW;
       const scaleY = (rect.height - padding) / canvasH;
-      setScale(Math.min(scaleX, scaleY));
+      setScale(Math.min(scaleX, scaleY, 1));
     };
+    // Retry a few times in case the element starts hidden
     updateScale();
+    if (scale < 0.1) timer = setTimeout(updateScale, 200);
     window.addEventListener("resize", updateScale);
-    return () => window.removeEventListener("resize", updateScale);
-  }, [canvasW, canvasH]);
+    return () => { window.removeEventListener("resize", updateScale); clearTimeout(timer); };
+  }, [canvasW, canvasH, session.id]);
 
   const addSticker = (sticker: Sticker) => {
-    const sw = canvasW * 0.3 * sticker.defaultScale;
-    const sh = sw; // Assuming squareish stickers for initial drag box
+    if (!canvasW || !canvasH) return;
+    const sw = (canvasW * 0.3) * (sticker.defaultScale ?? 1);
+    const sh = sw;
     setApplied((prev) => [
       ...prev,
       {
         id: crypto.randomUUID(),
         stickerId: sticker.id,
-        x: canvasW / 2 - sw / 2 + sticker.defaultOffsetX,
-        y: canvasH / 2 - sh / 2 + sticker.defaultOffsetY,
+        x: (canvasW - sw) / 2 + (sticker.defaultOffsetX ?? 0),
+        y: (canvasH - sh) / 2 + (sticker.defaultOffsetY ?? 0),
         width: sw,
         height: sh,
         rotation: 0,
@@ -101,9 +106,9 @@ export const StickerPad = React.forwardRef<StickerPadRef, StickerPadProps>(
         <div
           className="relative shadow-2xl overflow-hidden"
           style={{
-            width: canvasW * scale,
-            height: canvasH * scale,
-            background: session.layout.config.canvas.background,
+            width: canvasW * Math.max(scale, 0.1),
+            height: canvasH * Math.max(scale, 0.1),
+            background: session.layout.config.canvas.background || "#ffffff",
           }}
         >
           {/* Base Layout Rendering */}
@@ -168,7 +173,7 @@ export const StickerPad = React.forwardRef<StickerPadRef, StickerPadProps>(
           {applied.map((st) => (
             <Rnd
               key={st.id}
-              size={{ width: st.width * scale, height: st.height * scale }}
+              size={{ width: Math.max(st.width * scale, 10), height: Math.max(st.height * scale, 10) }}
               position={{ x: st.x * scale, y: st.y * scale }}
               onDragStop={(e, d) => updateSticker(st.id, { x: d.x / scale, y: d.y / scale })}
               onResizeStop={(e, dir, ref, delta, pos) => {
@@ -181,7 +186,7 @@ export const StickerPad = React.forwardRef<StickerPadRef, StickerPadProps>(
               }}
               bounds="parent"
               lockAspectRatio
-              className="group"
+              className="group z-30"
             >
               <div className="relative h-full w-full border-2 border-transparent group-hover:border-primary/50 group-active:border-primary border-dashed">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
